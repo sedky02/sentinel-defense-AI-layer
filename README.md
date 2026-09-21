@@ -1,6 +1,6 @@
 # SENTINEL SOC Defense Agent
 
-This is a v1 heuristic baseline for a SOC defense layer. It evaluates proposed agent actions over alerts, logs, incidents, and threat intelligence, where descriptive data may be attacker-controlled.
+This is a v1 heuristic baseline for a SOC defense layer. It evaluates proposed agent actions over alerts, logs, incidents, and threat intelligence, where descriptive data may be attacker-controlled. It now includes a simulator-facing adapter, batch evidence runner, ablation runner, and a static video-ready trace dashboard.
 
 ## Decision model
 
@@ -21,11 +21,60 @@ Memory has trust inheritance. A memory entry receives the minimum trust label of
 ## Run
 
 ```bash
-python -m sentinel_soc_defense.demo
 python -m unittest discover -s tests -v
+python -m sentinel_soc_defense.demo
 ```
 
-The demo includes a benign intel correlation, a hard negative (summarizing a frightening ransomware alert is still allowed), a hostile-log attack, and a memory-poisoning attack. Decisions are appended as JSONL to `sentinel_decisions.jsonl`.
+The demo includes benign and hard-negative work plus hostile-log, memory-poisoning, tool-output tampering, multi-step, and exfiltration-shaped scenarios. It writes `sentinel_decisions.jsonl` and generates `dashboard.html` for screen recording.
+
+## Official SENTINEL simulator adapter
+
+Start the defense service in one terminal:
+
+```bash
+python -m sentinel_soc_defense.adapter --port 8080 --trace sentinel_decisions.jsonl
+```
+
+Then point the starter-kit simulator at it:
+
+```bash
+sentinel run --scenario path/to/scenario.yaml --defense-url http://127.0.0.1:8080
+```
+
+The adapter is stdlib HTTP and matches the inspected starter-kit v1 contract: `GET /healthz` and `POST /v1/decision`. It returns the strict lowercase `allow`/`block`/`escalate`/`rewrite` decision shape with risk score, confidence, reason codes, explanation, and metadata. `adapter.py` contains the external-schema translation boundary. Every request and response decision is retained in the trace, including provenance and agent state metadata.
+
+For a containerized drop-in service:
+
+```bash
+docker build -t sentinel-soc-defense .
+docker run -p 8080:8080 sentinel-soc-defense
+```
+
+## Scenario batch evidence
+
+With the adapter running and the published scenario library available locally:
+
+```bash
+python -m sentinel_soc_defense.batch_runner path/to/scenarios --defense-url http://127.0.0.1:8080
+```
+
+This writes `results/scenario_results.csv`, prints pass rates by attack family and difficulty, and uses the simulator's machine-checkable outcome (`task_success`, `attack_success`, and `critical_violation`) rather than any scenario-specific expected result. It filters to declared SOC scenarios plus declarative hard-negative scenarios.
+
+## Ablation study
+
+```bash
+python -m sentinel_soc_defense.ablation path/to/scenarios
+```
+
+This starts an isolated adapter for each configuration: full policy, detector disabled, corroboration backstop disabled, and memory-trust inheritance disabled. It writes `results/ablation_results.csv` with attack pass rate, hard-negative pass rate, and false-positive rate. `N/A` means the selected scenarios did not provide enough machine-scoreable examples; it is deliberately not presented as a score.
+
+## Observability dashboard
+
+```bash
+python -m sentinel_soc_defense.dashboard --trace sentinel_decisions.jsonl --output dashboard.html
+```
+
+Open `dashboard.html` locally. It is a self-contained, offline static page with large action/decision cards, risk gauges, outcome colors, reason codes, and visible observation/memory provenance. If `results/scenario_results.csv` exists, it also displays batch pass rates by attack family.
 
 ## Known limitations
 

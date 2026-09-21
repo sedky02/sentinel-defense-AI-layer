@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+
 from .instruction_detector import detect_instruction_pattern
 from .models import CandidateAction, Decision
 from .risk_actions import LOW_RISK_ACTIONS, action_criticality
@@ -10,6 +12,15 @@ from .trust import trust_score, min_trust
 PATTERN_WEIGHT = 0.15  # Strict maximum: detector can only be a minor signal.
 CORROBORATION_CREDIT = 0.1  # Per independent trusted source, capped at two.
 TRUSTED_CORROBORATION_MINIMUM = 0.7
+
+
+@dataclass(frozen=True)
+class PolicyConfig:
+    """Swappable policy switches, primarily used for honest ablation studies."""
+
+    enable_instruction_detector: bool = True
+    enforce_corroboration_backstop: bool = True
+    inherit_memory_trust: bool = True
 
 
 def corroboration_count(action: CandidateAction) -> int:
@@ -25,19 +36,27 @@ def corroboration_count(action: CandidateAction) -> int:
     return len(sources)
 
 
-def decide(action: CandidateAction) -> Decision:
+def decide(action: CandidateAction, config: PolicyConfig | None = None) -> Decision:
     """Decide using criticality × provenance trust × corroboration as the core.
 
     Imperative-pattern matching is intentionally not a decision basis: its maximum
     effect is PATTERN_WEIGHT, while the action/provenance/corroboration model drives
     every outcome and the high-risk low-trust backstop.
     """
+    config = config or PolicyConfig()
     criticality = action_criticality(action.action_type)
+    # The default preserves memory provenance. The alternative exists only as an
+    # ablation: it demonstrates the security cost of incorrectly trusting memory.
     trust = min_trust(action.justifying_observations, action.justifying_memory)
+    if not config.inherit_memory_trust and action.justifying_memory:
+        observation_trust = min_trust(action.justifying_observations, [])
+        trust = observation_trust if action.justifying_observations else 1.0
     corroboration = corroboration_count(action)
     texts = [item.content for item in action.justifying_observations]
     texts.extend(item.content for item in action.justifying_memory)
     pattern_found, matched_phrases = detect_instruction_pattern(texts)
+    if not config.enable_instruction_detector:
+        pattern_found, matched_phrases = False, []
 
     # Core formula: risky action + weak provenance raises risk; independently
     # trusted corroboration reduces it. Pattern matching is capped at 0.15.
@@ -50,7 +69,7 @@ def decide(action: CandidateAction) -> Decision:
     high_risk_low_trust = criticality >= 0.8 and trust <= 0.3
     if high_risk_low_trust:
         reasons.append("HIGH_RISK_LOW_TRUST")
-    if criticality >= 0.8 and corroboration == 0:
+    if config.enforce_corroboration_backstop and criticality >= 0.8 and corroboration == 0:
         reasons.append("NO_CORROBORATION")
     if pattern_found:
         reasons.append("INSTRUCTION_PATTERN_DETECTED")
@@ -58,7 +77,8 @@ def decide(action: CandidateAction) -> Decision:
         reasons.append("MEMORY_INHERITED_UNTRUSTED")
 
     # Backstop prevents hostile logs or fake approvals from enabling critical acts.
-    if criticality >= 0.8 and corroboration == 0 and trust <= 0.3:
+    if (config.enforce_corroboration_backstop and criticality >= 0.8
+            and corroboration == 0 and trust <= 0.3):
         outcome = "BLOCK"
     elif risk_score >= 0.7:
         outcome = "BLOCK"
