@@ -1,6 +1,6 @@
 # SENTINEL SOC Defense Agent
 
-This is a v1 heuristic baseline for a SOC defense layer. It evaluates proposed agent actions over alerts, logs, incidents, and threat intelligence, where descriptive data may be attacker-controlled. It now includes a simulator-facing adapter, batch evidence runner, ablation runner, and a static video-ready trace dashboard.
+This is a heuristic baseline for a SOC defense layer. It evaluates proposed agent actions over alerts, logs, incidents, and threat intelligence, where descriptive data may be attacker-controlled. It now includes a simulator-facing adapter, batch evidence runner, ablation runner, and a static video-ready trace dashboard.
 
 ## Decision model
 
@@ -25,7 +25,7 @@ python -m unittest discover -s tests -v
 python -m sentinel_soc_defense.demo
 ```
 
-The demo includes benign and hard-negative work plus hostile-log, memory-poisoning, tool-output tampering, multi-step, and exfiltration-shaped scenarios. It writes a clean `demo_trace.jsonl` and generates `dashboard.html` for screen recording.
+The demo includes benign and hard-negative work plus hostile-log, memory-poisoning, tool-output tampering, multi-step, and exfiltration-shaped scenarios. It writes `sentinel_decisions.jsonl` and generates `dashboard.html` for screen recording.
 
 ## Official SENTINEL simulator adapter
 
@@ -87,7 +87,7 @@ python -m sentinel_soc_defense.ablation /tmp/sentinel_starter_kit/scenarios/publ
 The report is written to `results/ablation_results.md` and compares attack catches/misses with hard-negative pass counts. To render the raw trace as a simple chronological table:
 
 ```bash
-python -m sentinel_soc_defense.render_trace demo_trace.jsonl > trace_output.md
+python -m sentinel_soc_defense.render_trace sentinel_decisions.jsonl > trace_output.md
 ```
 
 `demo.py` prints this same table after its scenarios, so it is directly usable during a screen recording.

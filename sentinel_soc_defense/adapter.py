@@ -74,12 +74,17 @@ def translate_request(payload: dict[str, Any]) -> CandidateAction:
     guarded = guarded or candidate
     arguments = dict(guarded.get("arguments", {}))
     target = str(guarded.get("tool", guarded.get("content", "agent_response")))
+    arguments["_candidate_type"] = str(guarded.get("type", ""))
+    arguments["_tool"] = guarded.get("tool")
     return CandidateAction(_action_type(guarded), target, observations, memory, arguments)
 
 
 def decision_response(payload: dict[str, Any], config: PolicyConfig | None = None) -> tuple[CandidateAction, Any, dict[str, Any]]:
     action = translate_request(payload)
-    result = decide(action, config=config)
+    policy_context = payload.get("policy_context", {})
+    configured_tools = policy_context.get("allowed_tools")
+    allowed_tools = set(configured_tools) if isinstance(configured_tools, list) else None
+    result = decide(action, config=config, allowed_tools=allowed_tools)
     # Exact ``DefenseDecision`` shape: lower-case enum, risk/confidence, bounded metadata.
     response = {"decision": result.outcome.lower(), "risk_score": result.risk_score,
                 "confidence": round(max(0.1, 1.0 - abs(result.risk_score - 0.5)), 2),

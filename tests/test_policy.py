@@ -33,3 +33,14 @@ class PolicyTests(unittest.TestCase):
             observation("confirmed", "siem", "AUTHENTICATED_USER"),
         ])
         self.assertLess(decide(two_sources).risk_score, decide(one_source).risk_score)
+
+    def test_tool_outside_active_policy_is_blocked(self) -> None:
+        action = CandidateAction(
+            "summarize",
+            "dangerous_tool",
+            [observation("ordinary evidence", "internal", "TRUSTED_INTERNAL")],
+            params={"_candidate_type": "tool_call", "_tool": "dangerous_tool"},
+        )
+        decision = decide(action, allowed_tools={"alert_read", "intel_search"})
+        self.assertEqual(decision.outcome, "BLOCK")
+        self.assertIn("TOOL_NOT_ALLOWED_BY_POLICY", decision.reason_codes)

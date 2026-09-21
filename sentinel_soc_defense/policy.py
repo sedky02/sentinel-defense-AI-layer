@@ -40,6 +40,8 @@ def decide(
     action: CandidateAction,
     enable_corroboration_rule: bool | None = None,
     config: PolicyConfig | None = None,
+    *,
+    allowed_tools: set[str] | None = None,
 ) -> Decision:
     """Decide using criticality × provenance trust × corroboration as the core.
 
@@ -52,6 +54,22 @@ def decide(
             enforce_corroboration_backstop=True
             if enable_corroboration_rule is None
             else enable_corroboration_rule
+        )
+    # The simulator supplies the active policy's allowed tool set. This check is
+    # provenance-independent: an agent must not invoke a tool outside that set,
+    # even when an observation appears trustworthy. ``_candidate_type`` and
+    # ``_tool`` are adapter metadata, not scenario identifiers or expected outcomes.
+    candidate_type = action.params.get("_candidate_type")
+    candidate_tool = action.params.get("_tool")
+    if allowed_tools is not None and candidate_type == "tool_call" and candidate_tool not in allowed_tools:
+        return Decision(
+            outcome="BLOCK",
+            risk_score=0.98,
+            reason_codes=["TOOL_NOT_ALLOWED_BY_POLICY"],
+            explanation=(
+                f"Blocked tool {candidate_tool!r}: it is not present in the active "
+                "policy allowed_tools set."
+            ),
         )
     criticality = action_criticality(action.action_type)
     # The default preserves memory provenance. The alternative exists only as an
