@@ -66,7 +66,23 @@ This writes `results/scenario_results.csv`, prints pass rates by attack family a
 python -m sentinel_soc_defense.ablation path/to/scenarios
 ```
 
-This starts an isolated adapter for each configuration: full policy, detector disabled, corroboration backstop disabled, and memory-trust inheritance disabled. It writes `results/ablation_results.csv` with attack pass rate, hard-negative pass rate, and false-positive rate. `N/A` means the selected scenarios did not provide enough machine-scoreable examples; it is deliberately not presented as a score.
+This starts an isolated adapter subprocess for each of four configurations—full policy, corroboration
+backstop disabled, instruction detector disabled, and memory-trust inheritance disabled—while holding
+all other switches at their full-policy defaults.  It also runs five in-process synthetic boundary
+probes that isolate each toggle's effect independently of whether the external simulator scenarios
+happen to exercise that code path:
+
+| Probe | What it tests |
+|---|---|
+| A — Corroboration backstop | High-criticality action, single untrusted source: BLOCK vs ESCALATE |
+| B — Instruction detector | Adversary-controlled imperative text tips risk from ALLOW to ESCALATE |
+| C — Memory-trust inheritance | Memory-only action from untrusted source: BLOCK vs ALLOW |
+| D — Safe-rewrite path | `remediation_execute` with trusted provenance always produces REWRITE |
+| E — Tool-permission enforcement | Tool outside `allowed_tools` always produces BLOCK |
+
+The report is written to `results/ablation_results.md`.  `N/A` in the scenario batch means the
+selected scenarios did not provide enough machine-scoreable examples of a given type; it is
+deliberately not presented as a score.
 
 ## Observability dashboard
 
