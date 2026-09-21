@@ -107,12 +107,38 @@ def decide(
     if (config.enforce_corroboration_backstop and criticality >= 0.8
             and corroboration == 0 and trust <= 0.3):
         outcome = "BLOCK"
+        rewritten_action = None
+    elif (
+        action.params.get("_candidate_type") == "tool_call"
+        and (
+            action.params.get("_tool") == "remediation_execute"
+            or (action.params.get("_tool") == "incident_update" and action.params.get("status") == "closed")
+        )
+    ):
+        # Safe rewrite: do not execute or close state. Ask for human review as a
+        # non-final response. The adapter converts this local action to SENTINEL's
+        # strict CandidateAction response shape.
+        outcome = "REWRITE"
+        rewritten_action = CandidateAction(
+            action_type="summarize",
+            target=action.target,
+            params={
+                "rewrite_content": (
+                    f"I did not execute {action.params.get('_tool')}. "
+                    "The requested state-changing action needs human review."
+                )
+            },
+        )
+        reasons.append("SAFE_REWRITE_PROPOSED")
     elif risk_score >= 0.7:
         outcome = "BLOCK"
+        rewritten_action = None
     elif risk_score >= 0.4:
         outcome = "ESCALATE"
+        rewritten_action = None
     else:
         outcome = "ALLOW"
+        rewritten_action = None
         if action.action_type in LOW_RISK_ACTIONS:
             reasons.append("LOW_RISK_ALLOWED")
         if action.action_type == "summarize":
@@ -130,4 +156,4 @@ def decide(
         f"risk={risk_score:.2f}."
         + pattern_note
     )
-    return Decision(outcome, risk_score, reasons, explanation)
+    return Decision(outcome, risk_score, reasons, explanation, rewritten_action)

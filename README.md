@@ -12,7 +12,7 @@ Risk is clamped to `[0, 1]`. High-criticality actions justified only by low-trus
 
 Instruction-pattern detection is explicitly a minor signal, not the core defense: **“This is a minor supporting signal only. It contributes a small weight to the risk score and must never independently justify a decision. Core decisions are driven by action criticality and provenance trust, per SENTINEL's rule against keyword-matching as a core defense.”** Its contribution is capped at `0.15`.
 
-Outcomes are `ALLOW`, `ESCALATE`, or `BLOCK` (`REWRITE` is reserved for a future remediation-oriented policy response).
+Outcomes are `ALLOW`, `ESCALATE`, `BLOCK`, or `REWRITE`. For selected state-changing tool calls with adequate provenance, `REWRITE` replaces execution with a non-final human-review response. Low-trust high-criticality actions still use the hard block backstop.
 
 ## Memory provenance
 

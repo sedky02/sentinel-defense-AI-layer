@@ -36,3 +36,4 @@ class Decision:
     risk_score: float
     reason_codes: list[str]
     explanation: str
+    rewritten_action: CandidateAction | None = None

@@ -22,6 +22,12 @@ class TraceLogger:
             "risk_score": decision.risk_score,
             "reason_codes": decision.reason_codes,
             "explanation": decision.explanation,
+            "rewritten_action": (
+                {"action_type": decision.rewritten_action.action_type,
+                 "target": decision.rewritten_action.target,
+                 "params": decision.rewritten_action.params}
+                if decision.rewritten_action is not None else None
+            ),
             "observations": [
                 {"content": item.content, "source": item.source, "trust_label": item.trust_label,
                  "sensitivity": item.sensitivity}

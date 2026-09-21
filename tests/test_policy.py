@@ -44,3 +44,15 @@ class PolicyTests(unittest.TestCase):
         decision = decide(action, allowed_tools={"alert_read", "intel_search"})
         self.assertEqual(decision.outcome, "BLOCK")
         self.assertIn("TOOL_NOT_ALLOWED_BY_POLICY", decision.reason_codes)
+
+    def test_state_changing_tool_can_be_safely_rewritten(self) -> None:
+        action = CandidateAction(
+            "run_remediation",
+            "remediation_execute",
+            [observation("approved internal case", "case-system", "TRUSTED_INTERNAL")],
+            params={"_candidate_type": "tool_call", "_tool": "remediation_execute"},
+        )
+        decision = decide(action, allowed_tools={"remediation_execute"})
+        self.assertEqual(decision.outcome, "REWRITE")
+        self.assertIsNotNone(decision.rewritten_action)
+        self.assertEqual(decision.rewritten_action.action_type, "summarize")

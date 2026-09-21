@@ -86,9 +86,17 @@ def decision_response(payload: dict[str, Any], config: PolicyConfig | None = Non
     allowed_tools = set(configured_tools) if isinstance(configured_tools, list) else None
     result = decide(action, config=config, allowed_tools=allowed_tools)
     # Exact ``DefenseDecision`` shape: lower-case enum, risk/confidence, bounded metadata.
+    rewritten = None
+    if result.rewritten_action is not None:
+        rewritten = {
+            "type": "respond", "tool": None, "arguments": {},
+            "content": str(result.rewritten_action.params.get("rewrite_content", "Human review required.")),
+            "final": False, "confirmation_for": None,
+        }
     response = {"decision": result.outcome.lower(), "risk_score": result.risk_score,
                 "confidence": round(max(0.1, 1.0 - abs(result.risk_score - 0.5)), 2),
                 "reason_codes": result.reason_codes[:16], "explanation": result.explanation[:500],
+                "rewritten_action": rewritten,
                 "metadata": {"action_criticality_input": action.action_type,
                              "observation_count": len(action.justifying_observations),
                              "memory_count": len(action.justifying_memory)}}
