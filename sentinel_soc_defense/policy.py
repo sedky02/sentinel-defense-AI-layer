@@ -106,6 +106,7 @@ def decide(
     # Backstop prevents hostile logs or fake approvals from enabling critical acts.
     if (config.enforce_corroboration_backstop and criticality >= 0.8
             and corroboration == 0 and trust <= 0.3):
+        reasons.append("CORROBORATION_BACKSTOP")
         outcome = "BLOCK"
         rewritten_action = None
     elif (
