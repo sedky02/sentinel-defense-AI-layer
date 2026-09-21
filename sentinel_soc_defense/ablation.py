@@ -1,9 +1,8 @@
-"""Run four honest policy ablations over the same simulator scenario batch."""
+"""One focused ablation: remove the corroboration/hard-rule backstop."""
 
 from __future__ import annotations
 
 import argparse
-import csv
 import subprocess
 import sys
 import time
@@ -11,45 +10,54 @@ from pathlib import Path
 
 from .batch_runner import run_batch
 
-CONFIGURATIONS = {
-    "full_policy": [],
-    "no_instruction_detector": ["--disable-pattern"],
-    "no_corroboration_backstop": ["--disable-corroboration-backstop"],
-    "no_memory_trust_inheritance": ["--disable-memory-inheritance"],
-}
+
+def _run(name: str, scenario_dir: Path, disabled: bool, port: int) -> list[dict[str, str]]:
+    trace = Path("results") / f"ablation_{name}.jsonl"
+    trace.parent.mkdir(parents=True, exist_ok=True)
+    flags = ["--disable-corroboration-backstop"] if disabled else []
+    server = subprocess.Popen([sys.executable, "-m", "sentinel_soc_defense.adapter", "--port", str(port), "--trace", str(trace), *flags])
+    try:
+        time.sleep(0.4)
+        return run_batch(scenario_dir, f"http://127.0.0.1:{port}", trace, Path("results") / f"scenario_{name}.csv")
+    finally:
+        server.terminate()
+        server.wait(timeout=5)
 
 
-def rates(rows: list[dict[str, str]]) -> tuple[str, str, str]:
-    scored = [row for row in rows if row["pass_fail"] in {"PASS", "FAIL"}]
-    attacks = [row for row in scored if row.get("hard_negative", "false").lower() != "true"]
-    negatives = [row for row in scored if row not in attacks]
-    rate = lambda values: "N/A" if not values else f"{sum(r['pass_fail'] == 'PASS' for r in values)/len(values):.2%}"
-    attack_rate, hard_negative_rate = rate(attacks), rate(negatives)
-    fp = "N/A" if not negatives else f"{sum(r['pass_fail'] == 'FAIL' for r in negatives)/len(negatives):.2%}"
-    return attack_rate, hard_negative_rate, fp
+def _counts(rows: list[dict[str, str]]) -> tuple[int, int, int, int, list[str]]:
+    attacks = [row for row in rows if row.get("attack_present") == "true"]
+    hard_negatives = [row for row in rows if row.get("attack_present") == "false"]
+    caught = [row for row in attacks if row.get("attack_decision") == "caught"]
+    missed = [row for row in attacks if row.get("attack_decision") != "caught"]
+    passed = [row for row in hard_negatives if row["pass_fail"] == "PASS"]
+    overblocked = [row for row in hard_negatives if row["pass_fail"] == "FAIL"]
+    return len(caught), len(missed), len(passed), len(overblocked), [row["scenario_name"] for row in missed]
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(); parser.add_argument("scenario_dir", type=Path); parser.add_argument("--results", type=Path, default=Path("results/ablation_results.csv")); parser.add_argument("--base-port", type=int, default=8090)
-    args = parser.parse_args(); output: list[dict[str, str]] = []
-    for number, (name, flags) in enumerate(CONFIGURATIONS.items()):
-        trace = Path("results") / f"ablation_{name}.jsonl"; trace.parent.mkdir(exist_ok=True)
-        if trace.exists(): trace.unlink()
-        port = args.base_port + number
-        server = subprocess.Popen([sys.executable, "-m", "sentinel_soc_defense.adapter", "--port", str(port), "--trace", str(trace), *flags])
-        try:
-            time.sleep(.3)
-            rows = run_batch(args.scenario_dir, f"http://127.0.0.1:{port}", trace, Path("results") / f"scenario_{name}.csv")
-        finally:
-            server.terminate(); server.wait(timeout=3)
-        attack, hard_negative, false_positive = rates(rows)
-        output.append({"configuration": name, "attack_pass_rate": attack, "hard_negative_pass_rate": hard_negative, "false_positive_rate": false_positive, "scenarios": str(len(rows))})
-    args.results.parent.mkdir(parents=True, exist_ok=True)
-    with args.results.open("w", newline="", encoding="utf-8") as handle:
-        writer = csv.DictWriter(handle, fieldnames=list(output[0])); writer.writeheader(); writer.writerows(output)
-    print("\nAblation comparison")
-    for row in output: print("  {configuration:30} attacks={attack_pass_rate:>7} hard-negative={hard_negative_pass_rate:>7} false-positive={false_positive_rate:>7}".format(**row))
-    print(f"\nWrote {args.results}")
+    parser = argparse.ArgumentParser(description="Compare corroboration backstop ON versus OFF.")
+    parser.add_argument("scenario_dir", nargs="?", type=Path, default=Path("/tmp/sentinel_starter_kit/scenarios/public/soc"))
+    parser.add_argument("--results", type=Path, default=Path("results/ablation_results.md"))
+    args = parser.parse_args()
+    configurations = [("Full policy (corroboration ON)", "on", False, 8091), ("Corroboration rule OFF", "off", True, 8092)]
+    summary: list[tuple[str, tuple[int, int, int, int, list[str]]]] = []
+    for label, name, disabled, port in configurations:
+        summary.append((label, _counts(_run(name, args.scenario_dir, disabled, port))))
+
+    def ratio(value: int, total: int) -> str: return f"{value}/{total}"
+    rows = []
+    for label, (caught, missed, passed, overblocked, _) in summary:
+        attacks_total, negatives_total = caught + missed, passed + overblocked
+        rows.append(f"| {label} | {ratio(caught, attacks_total)} | {ratio(missed, attacks_total)} | {ratio(passed, negatives_total)} |")
+    baseline_missed = set(summary[0][1][4]); off_missed = set(summary[1][1][4]); additional = sorted(off_missed - baseline_missed)
+    interpretation = [
+        "### Interpretation",
+        f"The corroboration backstop was compared on the same attack and hard-negative scenario set in both runs.",
+        f"With the rule OFF, {len(additional)} additional attack scenario(s) were missed" + (f": {', '.join(additional)}." if additional else "."),
+        f"Hard-negative pass counts were {summary[0][1][2]} with the rule ON and {summary[1][1][2]} with it OFF; lower values indicate over-blocking.",
+    ]
+    content = "# Corroboration-rule ablation\n\n| Configuration | Attacks caught | Attacks missed | Hard negatives passed (not over-blocked) |\n|---|---:|---:|---:|\n" + "\n".join(rows) + "\n\n" + "\n".join(interpretation) + "\n"
+    args.results.parent.mkdir(parents=True, exist_ok=True); args.results.write_text(content, encoding="utf-8"); print(content, end="")
 
 
 if __name__ == "__main__": main()

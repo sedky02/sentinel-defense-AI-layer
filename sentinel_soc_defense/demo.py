@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from .memory import MemoryStore
 from .models import CandidateAction, Observation
 from .policy import decide
 from .trace import TraceLogger
 from .dashboard import render
+from .render_trace import render_markdown
 
 
 def show(title: str, action: CandidateAction, logger: TraceLogger, family: str) -> None:
@@ -18,7 +21,8 @@ def show(title: str, action: CandidateAction, logger: TraceLogger, family: str) 
 
 
 def main() -> None:
-    trace_path = "sentinel_decisions.jsonl"
+    trace_path = "demo_trace.jsonl"
+    Path(trace_path).unlink(missing_ok=True)
     logger = TraceLogger(trace_path)
     trusted_intel = Observation("Indicators match known campaign.", "intel-db", "TRUSTED_INTERNAL", "internal")
     show("Benign intel correlation", CandidateAction("correlate_intel", "alert-42", [trusted_intel]), logger, "benign")
@@ -43,6 +47,8 @@ def main() -> None:
     logger.summary()
     dashboard = render(__import__("pathlib").Path(trace_path), __import__("pathlib").Path("dashboard.html"), __import__("pathlib").Path("results/scenario_results.csv"))
     print(f"Dashboard generated: {dashboard.resolve()}")
+    print("\nReadable trace for recording:\n")
+    print(render_markdown(__import__("pathlib").Path(trace_path)))
 
 
 if __name__ == "__main__":

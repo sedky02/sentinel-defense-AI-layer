@@ -36,14 +36,23 @@ def corroboration_count(action: CandidateAction) -> int:
     return len(sources)
 
 
-def decide(action: CandidateAction, config: PolicyConfig | None = None) -> Decision:
+def decide(
+    action: CandidateAction,
+    enable_corroboration_rule: bool | None = None,
+    config: PolicyConfig | None = None,
+) -> Decision:
     """Decide using criticality × provenance trust × corroboration as the core.
 
     Imperative-pattern matching is intentionally not a decision basis: its maximum
     effect is PATTERN_WEIGHT, while the action/provenance/corroboration model drives
     every outcome and the high-risk low-trust backstop.
     """
-    config = config or PolicyConfig()
+    if config is None:
+        config = PolicyConfig(
+            enforce_corroboration_backstop=True
+            if enable_corroboration_rule is None
+            else enable_corroboration_rule
+        )
     criticality = action_criticality(action.action_type)
     # The default preserves memory provenance. The alternative exists only as an
     # ablation: it demonstrates the security cost of incorrectly trusting memory.

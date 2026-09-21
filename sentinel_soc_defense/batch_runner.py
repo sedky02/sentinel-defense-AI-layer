@@ -6,6 +6,7 @@ import argparse
 import csv
 import json
 import re
+import shutil
 import subprocess
 from collections import defaultdict
 from pathlib import Path
@@ -33,31 +34,43 @@ def row_from_outcome(outcome: dict[str, Any], status: str) -> dict[str, str]:
     hard_negative = bool(outcome.get("hard_negative", False))
     passed = secure and task_ok
     actual = "SECURE_TASK_COMPLETED" if passed else ("SECURITY_VIOLATION" if not secure else "TASK_NOT_COMPLETED")
+    unsafe_decisions = [item for item in decisions if item.get("legitimate") is False]
+    attack_decision = "caught" if any(item.get("decision") in {"block", "escalate"} for item in unsafe_decisions) else ("missed" if unsafe_decisions else "none")
     return {"scenario_name": str(outcome.get("scenario_id", "unknown")), "attack_family": str(outcome.get("attack_family", "none")),
             "difficulty_level": str(outcome.get("difficulty", "n/a")),
             "expected_secure_outcome_class": "task_success_without_attack_or_critical_violation",
             "actual_outcome": actual, "risk_score": str(decisions[-1].get("risk_score", "") if decisions else ""),
             "reason_codes": ";".join(decisions[-1].get("reason_codes", []) if decisions else []),
-            "pass_fail": "PASS" if passed else "FAIL", "hard_negative": str(hard_negative).lower(), "simulator_status": status}
+            "pass_fail": "PASS" if passed else "FAIL", "attack_decision": attack_decision, "hard_negative": str(hard_negative).lower(),
+            "attack_present": str(bool(outcome.get("attack_present", False))).lower(), "simulator_status": status}
 
 
 def run_batch(scenario_dir: Path, defense_url: str, trace: Path, results_path: Path, *, artifacts: Path = Path("results/simulator_artifacts"), model: str = "mock") -> list[dict[str, str]]:
     rows: list[dict[str, str]] = []
+    sentinel_command = ["sentinel"]
+    starter_root: Path | None = None
+    if shutil.which("sentinel") is None:
+        starter_root = next((parent for parent in [scenario_dir, *scenario_dir.parents] if (parent / "pyproject.toml").exists()), None)
+        if starter_root is not None and shutil.which("uv") is not None:
+            sentinel_command = ["uv", "run", "--project", str(starter_root), "sentinel"]
+    else:
+        starter_root = next((parent for parent in [scenario_dir, *scenario_dir.parents] if (parent / "pyproject.toml").exists()), None)
     for scenario in scenario_files(scenario_dir):
-        command = ["sentinel", "run", "--scenario", str(scenario), "--defense-url", defense_url, "--model", model, "--artifacts", str(artifacts), "--no-timeline", "--json"]
+        command = [*sentinel_command, "run", "--scenario", str(scenario), "--defense-url", defense_url, "--model", model, "--artifacts", str(artifacts), "--no-timeline", "--json"]
         try:
-            completed = subprocess.run(command, text=True, capture_output=True, check=False)
+            # The official CLI resolves fixture paths relative to its checkout root.
+            completed = subprocess.run(command, text=True, capture_output=True, check=False, cwd=starter_root)
         except FileNotFoundError:
-            rows.append({"scenario_name": scenario.stem, "attack_family": "unknown", "difficulty_level": "unknown", "expected_secure_outcome_class": "unavailable", "actual_outcome": "NO_SIMULATOR", "risk_score": "", "reason_codes": "", "pass_fail": "MANUAL_REVIEW", "hard_negative": "unknown", "simulator_status": "simulator_not_installed"}); continue
+            rows.append({"scenario_name": scenario.stem, "attack_family": "unknown", "difficulty_level": "unknown", "expected_secure_outcome_class": "unavailable", "actual_outcome": "NO_SIMULATOR", "risk_score": "", "reason_codes": "", "pass_fail": "MANUAL_REVIEW", "hard_negative": "unknown", "attack_present": "unknown", "simulator_status": "simulator_not_installed"}); continue
         if completed.returncode:
-            rows.append({"scenario_name": scenario.stem, "attack_family": "unknown", "difficulty_level": "unknown", "expected_secure_outcome_class": "unavailable", "actual_outcome": "SIMULATOR_ERROR", "risk_score": "", "reason_codes": "", "pass_fail": "MANUAL_REVIEW", "hard_negative": "unknown", "simulator_status": f"simulator_exit_{completed.returncode}"}); continue
+            rows.append({"scenario_name": scenario.stem, "attack_family": "unknown", "difficulty_level": "unknown", "expected_secure_outcome_class": "unavailable", "actual_outcome": "SIMULATOR_ERROR", "risk_score": "", "reason_codes": "", "pass_fail": "MANUAL_REVIEW", "hard_negative": "unknown", "attack_present": "unknown", "simulator_status": f"simulator_exit_{completed.returncode}"}); continue
         try:
             outcome = json.loads(completed.stdout)["outcome"]
             rows.append(row_from_outcome(outcome, "ran"))
         except (json.JSONDecodeError, KeyError, TypeError):
-            rows.append({"scenario_name": scenario.stem, "attack_family": "unknown", "difficulty_level": "unknown", "expected_secure_outcome_class": "unavailable", "actual_outcome": "UNPARSEABLE_SIMULATOR_OUTPUT", "risk_score": "", "reason_codes": "", "pass_fail": "MANUAL_REVIEW", "hard_negative": "unknown", "simulator_status": "unparseable"})
+            rows.append({"scenario_name": scenario.stem, "attack_family": "unknown", "difficulty_level": "unknown", "expected_secure_outcome_class": "unavailable", "actual_outcome": "UNPARSEABLE_SIMULATOR_OUTPUT", "risk_score": "", "reason_codes": "", "pass_fail": "MANUAL_REVIEW", "hard_negative": "unknown", "attack_present": "unknown", "simulator_status": "unparseable"})
     results_path.parent.mkdir(parents=True, exist_ok=True)
-    fields = ["scenario_name", "attack_family", "difficulty_level", "expected_secure_outcome_class", "actual_outcome", "risk_score", "reason_codes", "pass_fail", "hard_negative", "simulator_status"]
+    fields = ["scenario_name", "attack_family", "difficulty_level", "expected_secure_outcome_class", "actual_outcome", "risk_score", "reason_codes", "pass_fail", "attack_decision", "hard_negative", "attack_present", "simulator_status"]
     with results_path.open("w", newline="", encoding="utf-8") as handle:
         writer = csv.DictWriter(handle, fieldnames=fields); writer.writeheader(); writer.writerows(rows)
     return rows

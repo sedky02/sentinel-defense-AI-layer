@@ -1,0 +1,10 @@
+# Python-generated files
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Local traces and simulator artifacts
+sentinel_decisions.jsonl
+demo_trace.jsonl
+trace_output.md
+results/simulator_artifacts/

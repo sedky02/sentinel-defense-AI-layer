@@ -25,7 +25,7 @@ python -m unittest discover -s tests -v
 python -m sentinel_soc_defense.demo
 ```
 
-The demo includes benign and hard-negative work plus hostile-log, memory-poisoning, tool-output tampering, multi-step, and exfiltration-shaped scenarios. It writes `sentinel_decisions.jsonl` and generates `dashboard.html` for screen recording.
+The demo includes benign and hard-negative work plus hostile-log, memory-poisoning, tool-output tampering, multi-step, and exfiltration-shaped scenarios. It writes a clean `demo_trace.jsonl` and generates `dashboard.html` for screen recording.
 
 ## Official SENTINEL simulator adapter
 
@@ -75,6 +75,22 @@ python -m sentinel_soc_defense.dashboard --trace sentinel_decisions.jsonl --outp
 ```
 
 Open `dashboard.html` locally. It is a self-contained, offline static page with large action/decision cards, risk gauges, outcome colors, reason codes, and visible observation/memory provenance. If `results/scenario_results.csv` exists, it also displays batch pass rates by attack family.
+
+## Focused ablation and readable trace
+
+The final comparison removes only the high-criticality, low-trust corroboration backstop; all other policy logic stays identical:
+
+```bash
+python -m sentinel_soc_defense.ablation /tmp/sentinel_starter_kit/scenarios/public/soc
+```
+
+The report is written to `results/ablation_results.md` and compares attack catches/misses with hard-negative pass counts. To render the raw trace as a simple chronological table:
+
+```bash
+python -m sentinel_soc_defense.render_trace demo_trace.jsonl > trace_output.md
+```
+
+`demo.py` prints this same table after its scenarios, so it is directly usable during a screen recording.
 
 ## Known limitations
 

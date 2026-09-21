@@ -79,7 +79,7 @@ def translate_request(payload: dict[str, Any]) -> CandidateAction:
 
 def decision_response(payload: dict[str, Any], config: PolicyConfig | None = None) -> tuple[CandidateAction, Any, dict[str, Any]]:
     action = translate_request(payload)
-    result = decide(action, config)
+    result = decide(action, config=config)
     # Exact ``DefenseDecision`` shape: lower-case enum, risk/confidence, bounded metadata.
     response = {"decision": result.outcome.lower(), "risk_score": result.risk_score,
                 "confidence": round(max(0.1, 1.0 - abs(result.risk_score - 0.5)), 2),
