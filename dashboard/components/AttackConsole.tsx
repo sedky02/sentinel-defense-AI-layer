@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { ATTACK_PRESETS } from "@/lib/attackPresets";
+import { renderMarkdown } from "@/lib/markdown";
 import { OUTCOME_COLOR, OUTCOME_LABEL } from "@/lib/outcome";
 import type { Outcome } from "@/lib/types";
 
@@ -26,6 +27,11 @@ export function AttackConsole() {
   const [sending, setSending] = useState(false);
   const [result, setResult] = useState<SendResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  const [reportMarkdown, setReportMarkdown] = useState<string | null>(null);
+  const [reportLoading, setReportLoading] = useState(false);
+  const [reportError, setReportError] = useState<string | null>(null);
+  const [reportOpen, setReportOpen] = useState(false);
 
   const applyPreset = (id: string) => {
     setPresetId(id);
@@ -67,6 +73,25 @@ export function AttackConsole() {
       setError("network_error");
     } finally {
       setSending(false);
+    }
+  };
+
+  const generateReport = async () => {
+    setReportOpen(true);
+    setReportLoading(true);
+    setReportError(null);
+    try {
+      const response = await fetch("/api/compliance-report", { method: "POST" });
+      const data = (await response.json()) as { markdown?: string; error?: string; message?: string };
+      if (!response.ok || !data.markdown) {
+        setReportError(data.message ?? data.error ?? `HTTP ${response.status}`);
+      } else {
+        setReportMarkdown(data.markdown);
+      }
+    } catch {
+      setReportError("network_error");
+    } finally {
+      setReportLoading(false);
     }
   };
 
@@ -121,6 +146,7 @@ export function AttackConsole() {
 
       {result && (
         <div className="attack-console-result">
+          <span className="attack-console-result-label">Decision</span>
           <span
             className="attack-console-outcome"
             style={{ color: isOutcome(outcome) ? OUTCOME_COLOR[outcome] : undefined }}
@@ -132,6 +158,28 @@ export function AttackConsole() {
           <p>{result.explanation}</p>
         </div>
       )}
+
+      <div className="attack-console-report">
+        <button className="attack-console-report-button" onClick={generateReport} disabled={reportLoading}>
+          {reportLoading ? "Generating report..." : "Generate & view EU AI Act alignment report"}
+        </button>
+
+        {reportOpen && (
+          <div className="attack-console-report-body">
+            {reportError && (
+              <div className="attack-console-error">
+                Report generation failed: {reportError}
+              </div>
+            )}
+            {reportMarkdown && !reportLoading && (
+              <div
+                className="attack-console-report-markdown"
+                dangerouslySetInnerHTML={{ __html: renderMarkdown(reportMarkdown) }}
+              />
+            )}
+          </div>
+        )}
+      </div>
     </section>
   );
 }

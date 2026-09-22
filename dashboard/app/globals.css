@@ -885,6 +885,89 @@ button {
   letter-spacing: 0.06em;
 }
 
+.attack-console-result-label {
+  color: var(--text-ghost);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.attack-console-report {
+  margin-top: 0.9rem;
+  padding-top: 0.8rem;
+  border-top: 1px solid var(--border-hairline);
+}
+
+.attack-console-report-button {
+  padding: 0.5rem 0.9rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: 0.5rem;
+  background: rgba(8, 13, 21, 0.48);
+  color: var(--text-strong);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  cursor: pointer;
+}
+
+.attack-console-report-button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.attack-console-report-body {
+  margin-top: 0.75rem;
+}
+
+.attack-console-report-markdown {
+  max-height: 420px;
+  overflow-y: auto;
+  padding: 0.9rem 1rem;
+  border: 1px solid var(--border-hairline);
+  border-radius: 0.5rem;
+  background: rgba(8, 13, 21, 0.48);
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--text-muted);
+}
+
+.attack-console-report-markdown h2 {
+  margin: 0 0 0.5rem;
+  color: var(--text-strong);
+  font-family: var(--font-display);
+  font-size: 16px;
+}
+
+.attack-console-report-markdown h3 {
+  margin: 1rem 0 0.4rem;
+  color: var(--text-strong);
+  font-family: var(--font-display);
+  font-size: 13px;
+}
+
+.attack-console-report-markdown h2:first-child,
+.attack-console-report-markdown h3:first-child {
+  margin-top: 0;
+}
+
+.attack-console-report-markdown p {
+  margin: 0.4rem 0;
+}
+
+.attack-console-report-markdown ul {
+  margin: 0.4rem 0;
+  padding-left: 1.2rem;
+}
+
+.attack-console-report-markdown code {
+  color: var(--rewrite);
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
 .stream-head-left {
   display: flex;
   align-items: center;
