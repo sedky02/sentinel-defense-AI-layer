@@ -12,6 +12,10 @@ from .trust import trust_score, min_trust
 PATTERN_WEIGHT = 0.15  # Strict maximum: detector can only be a minor signal.
 CORROBORATION_CREDIT = 0.1  # Per independent trusted source, capped at two.
 TRUSTED_CORROBORATION_MINIMUM = 0.7
+HIGH_CRITICALITY_THRESHOLD = 0.8
+LOW_TRUST_THRESHOLD = 0.3
+ESCALATE_RISK_THRESHOLD = 0.4
+BLOCK_RISK_THRESHOLD = 0.7
 
 
 @dataclass(frozen=True)
@@ -93,10 +97,10 @@ def decide(
     risk_score = max(0.0, min(1.0, risk_score))
 
     reasons: list[str] = []
-    high_risk_low_trust = criticality >= 0.8 and trust <= 0.3
+    high_risk_low_trust = criticality >= HIGH_CRITICALITY_THRESHOLD and trust <= LOW_TRUST_THRESHOLD
     if high_risk_low_trust:
         reasons.append("HIGH_RISK_LOW_TRUST")
-    if config.enforce_corroboration_backstop and criticality >= 0.8 and corroboration == 0:
+    if config.enforce_corroboration_backstop and criticality >= HIGH_CRITICALITY_THRESHOLD and corroboration == 0:
         reasons.append("NO_CORROBORATION")
     if pattern_found:
         reasons.append("INSTRUCTION_PATTERN_DETECTED")
@@ -104,8 +108,8 @@ def decide(
         reasons.append("MEMORY_INHERITED_UNTRUSTED")
 
     # Backstop prevents hostile logs or fake approvals from enabling critical acts.
-    if (config.enforce_corroboration_backstop and criticality >= 0.8
-            and corroboration == 0 and trust <= 0.3):
+    if (config.enforce_corroboration_backstop and criticality >= HIGH_CRITICALITY_THRESHOLD
+            and corroboration == 0 and trust <= LOW_TRUST_THRESHOLD):
         reasons.append("CORROBORATION_BACKSTOP")
         outcome = "BLOCK"
         rewritten_action = None
@@ -131,10 +135,10 @@ def decide(
             },
         )
         reasons.append("SAFE_REWRITE_PROPOSED")
-    elif risk_score >= 0.7:
+    elif risk_score >= BLOCK_RISK_THRESHOLD:
         outcome = "BLOCK"
         rewritten_action = None
-    elif risk_score >= 0.4:
+    elif risk_score >= ESCALATE_RISK_THRESHOLD:
         outcome = "ESCALATE"
         rewritten_action = None
     else:

@@ -8,3 +8,5 @@ sentinel_decisions.jsonl
 demo_trace.jsonl
 trace_output.md
 results/simulator_artifacts/
+
+.mcp.json
