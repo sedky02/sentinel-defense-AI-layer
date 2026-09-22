@@ -8,7 +8,7 @@ export function Footer({ connected }: { connected: boolean }) {
         </span>
         <span className="footer-divider">|</span>
         <span>
-          Source: <strong>sentinel_decisions.jsonl</strong>
+          Source: <strong>live JSONL trace</strong>
         </span>
       </div>
       <div className="footer-group">

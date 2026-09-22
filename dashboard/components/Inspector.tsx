@@ -6,7 +6,7 @@ import { OutcomeBadge } from "./OutcomeBadge";
 import { ProvenanceList } from "./ProvenanceList";
 import { TRUST_TIERS, actionCriticality, corroborationCredit, minTrust } from "@/lib/risk";
 
-const REPLAY_COMMAND = "python -m sentinel_soc_defense.demo";
+const REPLAY_COMMAND = "./run_demo.sh";
 
 function Bar({ value, color }: { value: number; color: string }) {
   return (

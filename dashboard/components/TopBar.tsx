@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-const DEMO_COMMAND = "python -m sentinel_soc_defense.demo";
+const RUN_COMMAND = "./run_demo.sh";
 
 export function TopBar({
   connected,
@@ -23,7 +23,7 @@ export function TopBar({
 
   const copyCommand = async () => {
     try {
-      await navigator.clipboard.writeText(DEMO_COMMAND);
+      await navigator.clipboard.writeText(RUN_COMMAND);
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
     } catch {
@@ -54,8 +54,8 @@ export function TopBar({
           <button type="button" className="btn" onClick={onClear} title="Clear the displayed feed">
             Clear
           </button>
-          <button type="button" className="btn primary" onClick={copyCommand} title="Copy the demo run command">
-            {copied ? "Copied!" : "Copy Demo Cmd"}
+          <button type="button" className="btn primary" onClick={copyCommand} title="Copy the full SOC scenario run command">
+            {copied ? "Copied" : "Copy Run Cmd"}
           </button>
         </div>
       </div>

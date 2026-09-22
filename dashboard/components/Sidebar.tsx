@@ -1,9 +1,5 @@
 const NAV_ITEMS = [
   { label: "Live Console", active: true },
-  { label: "Model Matrix", active: false },
-  { label: "Safety Policies", active: false },
-  { label: "Incident Vault", active: false },
-  { label: "Audit Telemetry", active: false },
 ];
 
 export function Sidebar({ connected }: { connected: boolean }) {
@@ -18,7 +14,7 @@ export function Sidebar({ connected }: { connected: boolean }) {
           </div>
         </div>
         <nav className="sidebar-nav">
-          <div className="sidebar-nav-label">Navigation Telemetry</div>
+          <div className="sidebar-nav-label">Workspace</div>
           {NAV_ITEMS.map((item) => (
             <button
               key={item.label}
@@ -32,6 +28,11 @@ export function Sidebar({ connected }: { connected: boolean }) {
             </button>
           ))}
         </nav>
+        <div className="sidebar-context">
+          <span className="sidebar-context-kicker">MONITORING MODE</span>
+          <strong>Provenance-aware defense</strong>
+          <span>Live decisions, risk synthesis, and evidence trails.</span>
+        </div>
       </div>
 
       <div className="sidebar-footer">
