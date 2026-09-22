@@ -588,6 +588,26 @@ button {
   color: var(--text-strong);
 }
 
+.method-filter {
+  flex-wrap: wrap;
+}
+
+.signal-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin-top: 0.6rem;
+  color: var(--text-ghost);
+  font-family: var(--font-mono);
+  font-size: 10px;
+}
+
+.signal-summary .signal-label {
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
 .search-wrap {
   position: relative;
   flex: 1;
