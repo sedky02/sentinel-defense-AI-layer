@@ -32,7 +32,7 @@ python -m sentinel_soc_defense.adapter --port "${ADAPTER_PORT}" --trace "${TRACE
 ADAPTER_PID=$!
 
 echo "Starting live dashboard on ${URL} ..."
-(cd dashboard && TRACE_PATH="${TRACE_PATH}" npm run dev -- --port "${PORT}") &
+(cd dashboard && TRACE_PATH="${TRACE_PATH}" ADAPTER_URL="http://127.0.0.1:${ADAPTER_PORT}" npm run dev -- --port "${PORT}") &
 DASHBOARD_PID=$!
 trap 'kill "${DASHBOARD_PID}" "${ADAPTER_PID}" 2>/dev/null || true' EXIT
 

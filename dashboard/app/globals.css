@@ -785,6 +785,106 @@ button {
   }
 }
 
+.attack-console {
+  padding: 1.15rem 1.25rem;
+  border-color: rgba(220, 170, 90, 0.18);
+  background: linear-gradient(120deg, rgba(42, 32, 14, 0.9), rgba(20, 16, 13, 0.82));
+}
+
+.attack-console-controls {
+  display: flex;
+  gap: 0.6rem;
+  margin-top: 1rem;
+}
+
+.attack-console-select {
+  flex: 1;
+  padding: 0.5rem 0.65rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: 0.5rem;
+  background: rgba(8, 13, 21, 0.48);
+  color: var(--text-strong);
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.attack-console-send {
+  padding: 0.5rem 1rem;
+  border: 1px solid rgba(220, 170, 90, 0.3);
+  border-radius: 0.5rem;
+  background: rgba(220, 170, 90, 0.12);
+  color: var(--text-strong);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+}
+
+.attack-console-send:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.attack-console-desc {
+  margin: 0.6rem 0 0;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.attack-console-textarea {
+  width: 100%;
+  min-height: 220px;
+  margin-top: 0.7rem;
+  padding: 0.75rem;
+  border: 1px solid var(--border-hairline);
+  border-radius: 0.5rem;
+  background: rgba(8, 13, 21, 0.6);
+  color: var(--text-strong);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.5;
+  resize: vertical;
+}
+
+.attack-console-error {
+  margin-top: 0.7rem;
+  padding: 0.6rem 0.75rem;
+  border: 1px dashed var(--block);
+  border-radius: 0.5rem;
+  color: var(--block);
+  font-size: 12px;
+}
+
+.attack-console-error code {
+  color: var(--text-strong);
+}
+
+.attack-console-result {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+  margin-top: 0.7rem;
+  padding: 0.75rem;
+  border: 1px solid var(--border-hairline);
+  border-radius: 0.5rem;
+  background: rgba(8, 13, 21, 0.48);
+  font-size: 12px;
+}
+
+.attack-console-result p {
+  flex-basis: 100%;
+  margin: 0.3rem 0 0;
+  color: var(--text-muted);
+}
+
+.attack-console-outcome {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+}
+
 .stream-head-left {
   display: flex;
   align-items: center;

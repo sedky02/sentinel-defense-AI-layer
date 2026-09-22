@@ -11,6 +11,7 @@ import { DecisionCard } from "@/components/DecisionCard";
 import { Inspector } from "@/components/Inspector";
 import { Footer } from "@/components/Footer";
 import { AgentDojoPanel } from "@/components/AgentDojoPanel";
+import { AttackConsole } from "@/components/AttackConsole";
 
 const BENIGN_FAMILIES = new Set(["benign", "hard-negative"]);
 
@@ -133,6 +134,8 @@ export default function Home() {
             query={query}
             onQueryChange={setQuery}
           />
+
+          <AttackConsole />
 
           <AgentDojoPanel />
 
