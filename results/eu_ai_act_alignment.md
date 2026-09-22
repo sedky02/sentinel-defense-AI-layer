@@ -15,21 +15,21 @@ Trusted corroboration uses the policy minimum trust of `0.70`.
 
 ## Article 12 — Record-Keeping
 
-Decisions with complete audit fields: 0/5 (0.0%)
+Decisions with complete audit fields: 0/7 (0.0%)
 
 Field coverage computed from the trace entries:
-- ❌ `timestamp`: 0/5
-- ✅ `action_type`: 5/5
-- ✅ `risk_score`: 5/5
-- ✅ `reason_codes`: 5/5
-- ✅ `outcome`: 5/5
+- ❌ `timestamp`: 0/7
+- ✅ `action_type`: 7/7
+- ✅ `risk_score`: 7/7
+- ✅ `reason_codes`: 7/7
+- ✅ `outcome`: 7/7
 
 Gaps found:
 - `timestamp` missing in decision record(s): all decision records
 
 ## Article 14 — Human Oversight
 
-Escalation rate: 0/5 (0.0%)
+Escalation rate: 0/7 (0.0%)
 
 Escalated actions require human approval before execution: **Yes** — verified from `policy.py` and `adapter.py`: `ESCALATE` returns no rewritten action, and the adapter emits a decision response without invoking a tool. The adapter does not itself implement an approval workflow; execution therefore remains the caller's responsibility.
 

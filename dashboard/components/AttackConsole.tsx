@@ -54,6 +54,7 @@ export function AttackConsole() {
     setSending(true);
     setResult(null);
     setError(null);
+    setReportOpen(false);
 
     payload.run_id = `manual-${crypto.randomUUID()}`;
 

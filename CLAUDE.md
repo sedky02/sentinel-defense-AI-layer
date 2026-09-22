@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 A heuristic SOC (Security Operations Center) defense layer for an AI agent: it evaluates *proposed* agent actions (alerts, logs, incidents, threat intel) where the descriptive data may be attacker-controlled, and returns ALLOW / ESCALATE / BLOCK / REWRITE. It implements and exposes the SENTINEL Starter Kit v1 HTTP contract so the official simulator can drive it as an external defense service.
 
-Pure standard library, Python 3.12, no dependencies, no build step.
+Core policy engine (`sentinel_soc_defense/`) is pure standard library, Python 3.12, no dependencies, no build step. A Next.js/TypeScript live dashboard (`dashboard/`) and an optional AgentDojo/Groq integration are layered on top and do have their own dependencies.
 
 ## Commands
 
@@ -32,10 +32,23 @@ python -m sentinel_soc_defense.ablation path/to/scenarios
 # Render trace as a markdown table
 python -m sentinel_soc_defense.render_trace sentinel_decisions.jsonl > trace_output.md
 
-# Regenerate the static observability dashboard
+# Regenerate the static observability dashboard (standalone HTML snapshot)
 python -m sentinel_soc_defense.dashboard --trace sentinel_decisions.jsonl --output dashboard.html
 
-# Container build/run (drop-in adapter service)
+# One-command run: adapter + live Next.js dashboard + full public SOC scenario batch, opens browser
+./run_demo.sh
+
+# Generate the EU AI Act alignment note from an existing trace
+python run_compliance_check.py results/soc_trace.jsonl
+
+# Optional AgentDojo (prompt-injection benchmark) evaluation via Groq — needs GROQ_API_KEY (.env or exported)
+python run_agentdojo.py --provider groq --suite workspace --attack tool_knowledge --model openai/gpt-oss-120b
+
+# Dashboard dev server / production build (run from dashboard/)
+cd dashboard && npm run dev
+cd dashboard && npm run build
+
+# Container build/run (drop-in adapter service only, not the dashboard)
 docker build -t sentinel-soc-defense .
 docker run -p 8080:8080 sentinel-soc-defense
 ```
@@ -67,6 +80,12 @@ On top of the score there are two hard, provenance-independent backstops that ov
 **Everything is traced.** `trace.py::TraceLogger` appends every decision (with the input action, provenance, and full simulator request/response when running via the adapter) to a JSONL file (default `sentinel_decisions.jsonl`). `render_trace.py` and `dashboard.py` are both pure consumers of that JSONL — they never talk to the policy engine directly. `demo.py` runs a fixed set of benign/hostile/memory-poisoning/exfiltration-shaped scenarios directly against `decide()` (bypassing the HTTP adapter) and prints the same trace table used for screen recordings.
 
 **Ablation (`ablation.py`)** runs the *same* scenario set through four adapter subprocesses (full policy; corroboration backstop off; instruction detector off; memory-trust inheritance off) via `batch_runner.py`, plus five synthetic in-process boundary probes (A–E, documented in the README) that isolate each toggle's effect even when the external scenario library doesn't happen to exercise it. Results land in `results/ablation_results.md`.
+
+**Compliance reporting is read-only and out-of-band** (`compliance.py`, driven by `run_compliance_check.py`). `EUAIActAlignment` only reads an existing `TraceLogger` JSONL file and imports `policy.py` constants (thresholds, weights) to document architectural correspondence to EU AI Act Articles 9/12/14 (`results/eu_ai_act_alignment.md`). It never touches `decide()`, `TraceLogger`, or `Decision` — treat it as a reporting aid, not a legal conformity assessment, and never wire it into the decision path.
+
+**Dashboard (`dashboard/`, Next.js/TypeScript) is a thin, separate consumer of the same artifacts the Python side produces** — it does not reimplement any policy logic. Its API routes shell out to or read from the Python side: `app/api/send-attack` proxies a manual attack payload to the running adapter's `POST /v1/decision` (`lib/adapterUrl.ts` resolves the adapter URL), `app/api/compliance-report` invokes `run_compliance_check.py` as a subprocess and serves the resulting markdown, and `app/api/agentdojo` reads `results/agentdojo_summary.json`/`results/agentdojo_trace.jsonl`. Trace/result file paths are resolved from `lib/tracePath.ts`, `lib/compliancePath.ts`, `lib/agentdojoPath.ts`, `lib/repoRoot.ts` — keep new file-reading routes consistent with those resolvers rather than hardcoding paths. `./run_demo.sh` is the intended way to run the adapter and dashboard together against the full public SOC scenario set; it wires `TRACE_PATH`/`ADAPTER_URL` env vars into `npm run dev`.
+
+**AgentDojo bridge (`agentdojo_integration.py`, driven by `run_agentdojo.py`)** is optional and requires the separately-installed `agentdojo` package plus a Groq API key (`GROQ_API_KEY`, via `.env` or exported). It places `decide()` immediately before AgentDojo tool execution: BLOCK/ESCALATE/REWRITE outcomes are returned as a safe tool error instead of executing, while AgentDojo still computes its own independent utility/security scores. SENTINEL decisions from these runs are traced separately to `results/agentdojo_trace.jsonl`; don't conflate this trace with the main SOC scenario trace.
 
 ## Known project-specific constraints
 
