@@ -6,13 +6,17 @@ This is a heuristic baseline for a SOC defense layer. It evaluates proposed agen
 
 The core decision is driven by **action criticality × provenance trust × independent corroboration**:
 
-`risk = criticality * (1 - minimum_trust) + pattern_signal - corroboration_credit`
+`risk = criticality * (1 - minimum_trust) + behavioral_signal + legacy_pattern_signal - corroboration_credit`
 
 Risk is clamped to `[0, 1]`. High-criticality actions justified only by low-trust, uncorroborated information are blocked as a backstop against fake approvals and hostile log text.
 
-Instruction-pattern detection is explicitly a minor signal, not the core defense: **“This is a minor supporting signal only. It contributes a small weight to the risk score and must never independently justify a decision. Core decisions are driven by action criticality and provenance trust, per SENTINEL's rule against keyword-matching as a core defense.”** Its contribution is capped at `0.15`.
+Neither text-adjacent signal is the core defense — both are additive, capped, and never independently decisive: the masked-re-execution **behavioral detector** (capped at `0.35`) and the legacy keyword-pattern scan it demotes (capped at `0.05`, down from its original `0.15`) are corroborating evidence only, per SENTINEL's rule against keyword-matching as a core defense. See [`docs/fix1-behavioral-detector.md`](docs/fix1-behavioral-detector.md) for the design and rationale.
 
 Outcomes are `ALLOW`, `ESCALATE`, `BLOCK`, or `REWRITE`. For selected state-changing tool calls with adequate provenance, `REWRITE` replaces execution with a non-final human-review response. Low-trust high-criticality actions still use the hard block backstop.
+
+## Pre-LLM extraction layer
+
+Before any planning LLM reasons over raw observation text, `sentinel_soc_defense/extraction.py` converts it into strictly-typed, schema-validated facts — an allowlist per source type is the actual enforcement mechanism, not any extractor's judgment, and no schema for any source type can ever register an instruction-shaped field. See [`docs/fix2-extraction-layer.md`](docs/fix2-extraction-layer.md).
 
 ## Memory provenance
 
@@ -126,6 +130,13 @@ python run_compliance_check.py results/soc_trace.jsonl
 ```
 
 The output is written to `results/eu_ai_act_alignment.md`. The report computes field coverage from the actual JSONL records; for example, the current trace format has no top-level timestamp field, so that gap is reported rather than inferred. This is an architectural correspondence note, not a legal conformity assessment.
+
+## Optional dependencies
+
+The core policy engine (`sentinel_soc_defense/`) stays pure standard library. Two pieces are optional extras, each lazily imported so their absence never breaks the core:
+
+- **`openai`** — powers `extraction.py`'s `LlmFieldExtractor` (the free-text `*_summary` fields in the extraction schema registry: `email_summary`, `ticket_summary`, `chat_summary`), pointed at Groq's OpenAI-compatible endpoint. Install with `pip install openai` and set `GROQ_API_KEY`; if either is missing, those specific fields are dropped (logged, not raised) rather than failing the whole request — see [`docs/fix2-extraction-layer.md`](docs/fix2-extraction-layer.md).
+- **`agentdojo`** — the AgentDojo benchmark bridge, described below.
 
 ## Optional AgentDojo evaluation
 

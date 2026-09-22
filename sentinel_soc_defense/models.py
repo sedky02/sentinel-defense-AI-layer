@@ -3,6 +3,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .behavioral_detector import BehavioralSignal
 
 
 @dataclass(frozen=True)
@@ -37,3 +41,4 @@ class Decision:
     reason_codes: list[str]
     explanation: str
     rewritten_action: CandidateAction | None = None
+    behavioral_signal: "BehavioralSignal | None" = None

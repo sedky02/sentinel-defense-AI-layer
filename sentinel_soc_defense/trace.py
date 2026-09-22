@@ -38,6 +38,13 @@ class TraceLogger:
                  "derived_from": item.derived_from, "written_at": item.written_at}
                 for item in action.justifying_memory
             ],
+            "behavioral_signal": (
+                {"triggered": decision.behavioral_signal.triggered,
+                 "similarity_score": decision.behavioral_signal.similarity_score,
+                 "reason": decision.behavioral_signal.reason,
+                 "latency_seconds": decision.behavioral_signal.latency_seconds}
+                if decision.behavioral_signal is not None else None
+            ),
             "metadata": metadata or {},
         }
         with self.path.open("a", encoding="utf-8") as handle:

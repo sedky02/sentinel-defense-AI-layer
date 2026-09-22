@@ -2,14 +2,31 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
+from .behavioral_detector import (
+    BEHAVIORAL_REEXECUTION_TIMEOUT_SECONDS,
+    evaluate_behavioral_signal,
+    is_signal_unavailable,
+)
 from .instruction_detector import detect_instruction_pattern
 from .models import CandidateAction, Decision
+from .reexecution import AgentReExecutor, NullReExecutor
 from .risk_actions import LOW_RISK_ACTIONS, action_criticality
 from .trust import trust_score, min_trust
 
-PATTERN_WEIGHT = 0.15  # Strict maximum: detector can only be a minor signal.
+PATTERN_WEIGHT = 0.15  # Retained for legacy/ablation-comparison config only; the
+# live formula uses LEGACY_PATTERN_WEIGHT below. Kept defined (not deleted) so
+# "Legacy pattern detector OFF" ablation reporting can still cite the original
+# value for comparison against the new, demoted weight.
+LEGACY_PATTERN_WEIGHT = 0.05  # Demoted weight for the keyword-pattern scan: still
+# a minor corroborating signal, but strictly secondary to the behavioral signal.
+BEHAVIORAL_WEIGHT = 0.35  # Meaningfully stronger than the legacy pattern weight,
+# since masked re-execution is a much harder-to-evade signal -- but still
+# additive/capped, never a sole decider (see the corroboration backstop below).
+BEHAVIORAL_CRITICALITY_THRESHOLD = 0.70  # Only attempt masked re-execution for
+# actions at least this critical; avoids the latency/cost of re-execution for
+# low-risk actions like ``summarize``/``correlate_intel``.
 CORROBORATION_CREDIT = 0.1  # Per independent trusted source, capped at two.
 TRUSTED_CORROBORATION_MINIMUM = 0.7
 HIGH_CRITICALITY_THRESHOLD = 0.8
@@ -25,6 +42,18 @@ class PolicyConfig:
     enable_instruction_detector: bool = True
     enforce_corroboration_backstop: bool = True
     inherit_memory_trust: bool = True
+    enable_behavioral_detector: bool = True
+    # Fail-open/fail-closed choice for an unavailable behavioral oracle (unwired
+    # AgentReExecutor, or one that times out). Numerically both settings
+    # contribute zero risk credit -- an infrastructure failure must not
+    # unilaterally drive an outcome, per the project's "no single heuristic
+    # decides alone" rule, and the existing CORROBORATION_BACKSTOP remains the
+    # real safety net regardless of this flag. The flag only controls which
+    # reason code is logged, for audit transparency about the deployment's
+    # chosen posture.
+    behavioral_fail_open: bool = False
+    reexecutor: AgentReExecutor = field(default_factory=NullReExecutor)
+    behavioral_timeout_seconds: float = BEHAVIORAL_REEXECUTION_TIMEOUT_SECONDS
 
 
 def corroboration_count(action: CandidateAction) -> int:
@@ -83,6 +112,23 @@ def decide(
         observation_trust = min_trust(action.justifying_observations, [])
         trust = observation_trust if action.justifying_observations else 1.0
     corroboration = corroboration_count(action)
+
+    # Behavioral signal (MELON-style masked re-execution). Only attempted for
+    # actions critical enough to justify the latency/cost of a second
+    # inference call; low-risk actions skip this entirely.
+    behavioral_signal = None
+    behavioral_unavailable_fail_open = False
+    if config.enable_behavioral_detector and criticality >= BEHAVIORAL_CRITICALITY_THRESHOLD:
+        behavioral_signal = evaluate_behavioral_signal(
+            action,
+            config.reexecutor,
+            action.justifying_observations,
+            _build_conversation_history(action),
+            timeout_seconds=config.behavioral_timeout_seconds,
+        )
+        if is_signal_unavailable(behavioral_signal):
+            behavioral_unavailable_fail_open = config.behavioral_fail_open
+
     texts = [item.content for item in action.justifying_observations]
     texts.extend(item.content for item in action.justifying_memory)
     pattern_found, matched_phrases = detect_instruction_pattern(texts)
@@ -90,9 +136,14 @@ def decide(
         pattern_found, matched_phrases = False, []
 
     # Core formula: risky action + weak provenance raises risk; independently
-    # trusted corroboration reduces it. Pattern matching is capped at 0.15.
+    # trusted corroboration reduces it. The behavioral signal (harder to evade
+    # than keyword matching) and the legacy pattern scan (kept as a cheap,
+    # low-weight corroborating signal) are both additive and capped -- neither
+    # may independently justify a decision.
+    behavioral_triggered = bool(behavioral_signal and behavioral_signal.triggered)
     risk_score = criticality * (1 - trust)
-    risk_score += PATTERN_WEIGHT if pattern_found else 0.0
+    risk_score += BEHAVIORAL_WEIGHT if behavioral_triggered else 0.0
+    risk_score += LEGACY_PATTERN_WEIGHT if pattern_found else 0.0
     risk_score -= CORROBORATION_CREDIT * min(corroboration, 2)
     risk_score = max(0.0, min(1.0, risk_score))
 
@@ -103,9 +154,25 @@ def decide(
     if config.enforce_corroboration_backstop and criticality >= HIGH_CRITICALITY_THRESHOLD and corroboration == 0:
         reasons.append("NO_CORROBORATION")
     if pattern_found:
+        # Both names appended for one transition cycle: INSTRUCTION_PATTERN_DETECTED
+        # is kept for any existing consumer of the old reason code; LEGACY_PATTERN_MATCHED
+        # is the new name reflecting the detector's demoted role.
         reasons.append("INSTRUCTION_PATTERN_DETECTED")
+        reasons.append("LEGACY_PATTERN_MATCHED")
     if any(trust_score(entry.trust_label) < TRUSTED_CORROBORATION_MINIMUM for entry in action.justifying_memory):
         reasons.append("MEMORY_INHERITED_UNTRUSTED")
+    if behavioral_signal is not None:
+        if behavioral_triggered:
+            reasons.append("BEHAVIORAL_DIVERGENCE_DETECTED")
+        elif is_signal_unavailable(behavioral_signal):
+            reasons.append(
+                "BEHAVIORAL_SIGNAL_UNAVAILABLE_FAIL_OPEN"
+                if behavioral_unavailable_fail_open
+                else "BEHAVIORAL_SIGNAL_UNAVAILABLE"
+            )
+        elif behavioral_signal.reason == "PARTIAL_OVERLAP_BENIGN":
+            # Observability only: does not affect risk_score or outcome.
+            reasons.append("PARTIAL_OVERLAP_BENIGN")
 
     # Backstop prevents hostile logs or fake approvals from enabling critical acts.
     if (config.enforce_corroboration_backstop and criticality >= HIGH_CRITICALITY_THRESHOLD
@@ -155,10 +222,41 @@ def decide(
         if pattern_found
         else ""
     )
+    behavioral_note = ""
+    if behavioral_signal is not None:
+        held_constant = [o.source for o in action.justifying_observations]
+        masked_tool = (
+            "none"
+            if behavioral_signal.masked_action is None
+            else behavioral_signal.masked_action.action_type
+        )
+        behavioral_note = (
+            f" Behavioral check: similarity={behavioral_signal.similarity_score:.2f}, "
+            f"masked_action={masked_tool}, "
+            f"observations_held_constant={held_constant}."
+        )
     explanation = (
         f"Outcome {outcome}: criticality={criticality:.2f}, minimum provenance "
         f"trust={trust:.2f}, independent trusted corroboration={corroboration}, "
         f"risk={risk_score:.2f}."
         + pattern_note
+        + behavioral_note
     )
-    return Decision(outcome, risk_score, reasons, explanation, rewritten_action)
+    return Decision(outcome, risk_score, reasons, explanation, rewritten_action, behavioral_signal)
+
+
+def _build_conversation_history(action: CandidateAction) -> list[dict]:
+    """Synthesize a minimal conversation-history payload for the re-execution
+    oracle from the justifying observations/memory already attached to the
+    action. This is a simplification: when ``decide()`` is called outside
+    ``adapter.py`` (e.g. from ``ablation.py`` probes, ``demo.py``, or direct
+    library use), there is no true multi-turn agent transcript available, only
+    the evidence SENTINEL was given. A richer integration (see adapter.py's
+    module docstring) may pass its own transcript directly to a custom
+    AgentReExecutor rather than relying on this helper's output."""
+    history: list[dict] = []
+    for observation in action.justifying_observations:
+        history.append({"role": "tool", "source": observation.source, "content": observation.content})
+    for entry in action.justifying_memory:
+        history.append({"role": "memory", "source": ", ".join(entry.derived_from), "content": entry.content})
+    return history
