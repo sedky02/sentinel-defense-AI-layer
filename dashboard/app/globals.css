@@ -1313,6 +1313,8 @@ button {
   gap: 0.75rem;
   position: sticky;
   top: 60px;
+  max-height: calc(100vh - 60px - 1.5rem);
+  overflow-y: auto;
 }
 
 .inspector-header {
@@ -1895,6 +1897,7 @@ body {
 
 .inspector-col {
   top: 84px;
+  max-height: calc(100vh - 84px - 1.5rem);
 }
 
 .inspector-section {
