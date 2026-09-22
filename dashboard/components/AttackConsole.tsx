@@ -3,21 +3,18 @@
 import { useState } from "react";
 import { ATTACK_PRESETS } from "@/lib/attackPresets";
 import { renderMarkdown } from "@/lib/markdown";
-import { OUTCOME_COLOR, OUTCOME_LABEL } from "@/lib/outcome";
-import type { Outcome } from "@/lib/types";
-
-type SendResult = {
-  decision: string;
-  risk_score: number;
-  confidence: number;
-  reason_codes: string[];
-  explanation: string;
-};
+import { deriveRequestSummary, type RequestSummary } from "@/lib/requestSummary";
+import { AttackPipeline, type PipelineState, type PipelineResult } from "./AttackPipeline";
 
 type SendError = { error: string };
 
-function isOutcome(value: string): value is Outcome {
-  return value === "ALLOW" || value === "BLOCK" || value === "ESCALATE" || value === "REWRITE";
+function friendlyError(error: string | null): string | null {
+  if (!error) return null;
+  if (error === "adapter_unreachable") {
+    return "start the adapter with python -m sentinel_soc_defense.adapter --port 8080 --trace <path>";
+  }
+  if (error === "network_error") return "network error reaching the dashboard server";
+  return error;
 }
 
 export function AttackConsole() {
@@ -25,8 +22,9 @@ export function AttackConsole() {
   const [draft, setDraft] = useState(() => JSON.stringify(ATTACK_PRESETS[0].body, null, 2));
   const [parseError, setParseError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
-  const [result, setResult] = useState<SendResult | null>(null);
+  const [result, setResult] = useState<PipelineResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [sentSummary, setSentSummary] = useState<RequestSummary | null>(null);
 
   const [reportMarkdown, setReportMarkdown] = useState<string | null>(null);
   const [reportLoading, setReportLoading] = useState(false);
@@ -40,6 +38,7 @@ export function AttackConsole() {
     setParseError(null);
     setResult(null);
     setError(null);
+    setSentSummary(null);
   };
 
   const send = async () => {
@@ -48,6 +47,9 @@ export function AttackConsole() {
       payload = JSON.parse(draft);
     } catch (err) {
       setParseError(err instanceof Error ? err.message : "Invalid JSON");
+      setResult(null);
+      setError(null);
+      setSentSummary(null);
       return;
     }
     setParseError(null);
@@ -55,6 +57,7 @@ export function AttackConsole() {
     setResult(null);
     setError(null);
     setReportOpen(false);
+    setSentSummary(deriveRequestSummary(payload));
 
     payload.run_id = `manual-${crypto.randomUUID()}`;
 
@@ -64,7 +67,7 @@ export function AttackConsole() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-      const data = (await response.json()) as SendResult | SendError;
+      const data = (await response.json()) as PipelineResult | SendError;
       if (!response.ok || "error" in data) {
         setError("error" in data ? data.error : `HTTP ${response.status}`);
       } else {
@@ -96,7 +99,7 @@ export function AttackConsole() {
     }
   };
 
-  const outcome = result?.decision.toUpperCase() ?? "";
+  const pipelineState: PipelineState = sending ? "sending" : error ? "error" : result ? "done" : "idle";
 
   return (
     <section className="panel attack-console">
@@ -104,7 +107,7 @@ export function AttackConsole() {
         <div>
           <div className="section-kicker">MANUAL WORKFLOW CHECK</div>
           <h2>Attack Console</h2>
-          <p>Send a crafted attack (or benign control) straight at the running adapter and watch the decision land here and in the stream below.</p>
+          <p>Send a crafted attack (or benign control) straight at the running adapter and watch it move through SENTINEL live.</p>
         </div>
       </div>
 
@@ -127,38 +130,24 @@ export function AttackConsole() {
         {ATTACK_PRESETS.find((p) => p.id === presetId)?.description}
       </p>
 
-      <textarea
-        className="attack-console-textarea"
-        value={draft}
-        onChange={(e) => { setDraft(e.target.value); setParseError(null); }}
-        spellCheck={false}
-      />
+      <details className="attack-console-editor">
+        <summary>Edit raw request JSON</summary>
+        <textarea
+          className="attack-console-textarea"
+          value={draft}
+          onChange={(e) => { setDraft(e.target.value); setParseError(null); }}
+          spellCheck={false}
+        />
+      </details>
 
       {parseError && <div className="attack-console-error">Invalid JSON: {parseError}</div>}
 
-      {error === "adapter_unreachable" && (
-        <div className="attack-console-error">
-          Adapter not reachable — start it with <code>python -m sentinel_soc_defense.adapter --port 8080 --trace &lt;path&gt;</code>
-        </div>
-      )}
-      {error && error !== "adapter_unreachable" && (
-        <div className="attack-console-error">Send failed: {error}</div>
-      )}
-
-      {result && (
-        <div className="attack-console-result">
-          <span className="attack-console-result-label">Decision</span>
-          <span
-            className="attack-console-outcome"
-            style={{ color: isOutcome(outcome) ? OUTCOME_COLOR[outcome] : undefined }}
-          >
-            {isOutcome(outcome) ? OUTCOME_LABEL[outcome] : outcome}
-          </span>
-          <span>risk {result.risk_score.toFixed(2)}</span>
-          <span>{result.reason_codes.join(", ") || "no reason codes"}</span>
-          <p>{result.explanation}</p>
-        </div>
-      )}
+      <AttackPipeline
+        state={pipelineState}
+        requestSummary={sentSummary}
+        result={result}
+        errorMessage={friendlyError(error)}
+      />
 
       <div className="attack-console-report">
         <button className="attack-console-report-button" onClick={generateReport} disabled={reportLoading}>
