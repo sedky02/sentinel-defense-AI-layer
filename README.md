@@ -1,6 +1,6 @@
 # SENTINEL SOC Defense Agent
 
-This is a heuristic baseline for a SOC defense layer. It evaluates proposed agent actions over alerts, logs, incidents, and threat intelligence, where descriptive data may be attacker-controlled. It now includes a simulator-facing adapter, batch evidence runner, ablation runner, and a static video-ready trace dashboard.
+This is a heuristic baseline for a SOC defense layer. It evaluates proposed agent actions over alerts, logs, incidents, and threat intelligence, where descriptive data may be attacker-controlled. It includes a simulator-facing adapter, batch evidence runner, ablation runner, a live trace dashboard, and a documentation-only EU AI Act alignment report.
 
 ## Decision model
 
@@ -22,10 +22,23 @@ Memory has trust inheritance. A memory entry receives the minimum trust label of
 
 ```bash
 python -m unittest discover -s tests -v
-python -m sentinel_soc_defense.demo
 ```
 
-The demo includes benign and hard-negative work plus hostile-log, memory-poisoning, tool-output tampering, multi-step, and exfiltration-shaped scenarios. It writes `sentinel_decisions.jsonl` and generates `dashboard.html` for screen recording.
+For the complete local SOC demonstration, run the adapter against all 13 public SOC scenarios from the starter kit and open the live dashboard:
+
+```bash
+./run_demo.sh
+```
+
+This writes `results/soc_trace.jsonl` and `results/scenario_results.csv`. The current public SOC batch produces 64 decision actions across 13 scenario files. The dashboard shows actions, not scenarios: one scenario can produce several policy decisions.
+
+For the smaller seven-action policy walkthrough, use:
+
+```bash
+python -m sentinel_soc_defense.demo --trace sentinel_decisions.jsonl
+```
+
+That demo includes benign and hard-negative work plus hostile-log, memory-poisoning, tool-output tampering, multi-step, and exfiltration-shaped actions.
 
 ## Official SENTINEL simulator adapter
 
@@ -86,11 +99,41 @@ deliberately not presented as a score.
 
 ## Observability dashboard
 
+The recommended live dashboard workflow is:
+
 ```bash
-python -m sentinel_soc_defense.dashboard --trace sentinel_decisions.jsonl --output dashboard.html
+./run_demo.sh
 ```
 
-Open `dashboard.html` locally. It is a self-contained, offline static page with large action/decision cards, risk gauges, outcome colors, reason codes, and visible observation/memory provenance. If `results/scenario_results.csv` exists, it also displays batch pass rates by attack family.
+The live Next.js dashboard reads the trace selected by `TRACE_PATH` (the script uses `results/soc_trace.jsonl`). To render a standalone HTML snapshot from any trace:
+
+```bash
+python -m sentinel_soc_defense.dashboard \
+  --trace results/soc_trace.jsonl \
+  --output dashboard.html \
+  --results results/scenario_results.csv
+```
+
+The dashboard provides a focused live console with outcome metrics, risk trend, filters, provenance inspection, reason codes, and scenario-family context. The standalone renderer produces an offline HTML snapshot with action/decision cards, risk gauges, outcome colors, reason codes, and visible observation/memory provenance.
+
+The frontend can be built without network access:
+
+```bash
+cd dashboard
+npm run build
+```
+
+## EU AI Act alignment note
+
+`sentinel_soc_defense/compliance.py` is a read-only documentation/reporting aid. It does not participate in decision-making and does not change `policy.py`, `TraceLogger`, or `Decision` behavior. It maps existing policy thresholds and trace records to Articles 9 (risk management), 12 (record-keeping), and 14 (human oversight).
+
+Generate the report for an existing trace with:
+
+```bash
+python run_compliance_check.py results/soc_trace.jsonl
+```
+
+The output is written to `results/eu_ai_act_alignment.md`. The report computes field coverage from the actual JSONL records; for example, the current trace format has no top-level timestamp field, so that gap is reported rather than inferred. This is an architectural correspondence note, not a legal conformity assessment.
 
 ## Focused ablation and readable trace
 
@@ -113,6 +156,7 @@ python -m sentinel_soc_defense.render_trace sentinel_decisions.jsonl > trace_out
 - No encoding or obfuscation detection yet (for example base64/hex exfiltration).
 - No adaptive or multi-step composition handling yet.
 - Thresholds and registry weights are hand-tuned, not calibrated.
+- The current `TraceLogger` schema does not emit a top-level timestamp; the Article 12 report records this as a coverage gap.
 
 ## Next iterations
 

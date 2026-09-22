@@ -108,8 +108,11 @@ sentinel_soc_defense/
 ├── ablation.py              # Multi-configuration ablation engine and synthetic boundary probes
 ├── trace.py                 # Structured JSONL decision audit logger
 ├── render_trace.py          # CLI tool to render traces into markdown tables
-└── dashboard.py             # Generates standalone interactive HTML visualizer
+├── dashboard.py             # Generates standalone HTML trace snapshots
+└── compliance.py            # Read-only EU AI Act alignment reporting aid
 ```
+
+The `dashboard/` directory contains the live Next.js observability console. It reads the JSONL trace through the SSE stream endpoint and is independent of the policy decision path.
 
 ### Module Responsibilities
 
@@ -121,6 +124,7 @@ sentinel_soc_defense/
 | [`adapter.py`](file:///home/salwa/Desktop/DESK/OpenSource/sentinel-defense-AI-layer/sentinel_soc_defense/adapter.py) | Translates between external SENTINEL simulator v1 JSON requests/responses and internal policy dataclasses. |
 | [`memory.py`](file:///home/salwa/Desktop/DESK/OpenSource/sentinel-defense-AI-layer/sentinel_soc_defense/memory.py) | Tracks memory provenance so an agent cannot upgrade an untrusted observation to trusted by storing it in memory. |
 | [`ablation.py`](file:///home/salwa/Desktop/DESK/OpenSource/sentinel-defense-AI-layer/sentinel_soc_defense/ablation.py) | Runs comparative ablations across 4 configurations and 5 isolated boundary probes. |
+| [`compliance.py`](file:///home/salwa/Desktop/DESK/OpenSource/sentinel-defense-AI-layer/sentinel_soc_defense/compliance.py) | Reads policy constants and JSONL traces to produce a documentation-only EU AI Act alignment note. |
 
 ---
 
@@ -157,6 +161,16 @@ sequenceDiagram
    - Absolute backstops against hostile instructions.
 4. **Audit Logging**: `trace.py` appends the full structured decision record to `sentinel_decisions.jsonl`.
 5. **Enforcement Response**: The adapter formats the standard response JSON with `allow`, `block`, `escalate`, or `rewrite`.
+
+### 4.1 Full SOC demonstration workflow
+
+The repository's `run_demo.sh` starts both the adapter and the live dashboard, then runs the 13 public SOC scenario files found under `scenarios/public/soc`. The resulting trace currently contains 64 individual decision actions. These counts are different because a scenario is a complete simulator task, while an action is one candidate decision evaluated during a task.
+
+```bash
+./run_demo.sh
+```
+
+The script writes `results/soc_trace.jsonl` and `results/scenario_results.csv`, and sets the dashboard's `TRACE_PATH` to the scenario trace. The seven-action `sentinel_soc_defense.demo` remains available as a small in-process policy walkthrough.
 
 ---
 
@@ -307,3 +321,13 @@ To verify that each policy switch behaves as intended, the ablation system runs 
 1. **Never Rely on Surface Keywords**: Adversaries mutate phrasing easily. Rely on strict provenance metadata, source sensitivity, and action criticality.
 2. **Preserve Memory Provenance**: Treat memory entries as derived data that inherit the weakest trust level of their source observations.
 3. **Prefer Safe Rewrites Over Hard Failures When Legitimate**: Converting high-risk tool execution into human review prompts maintains operational resilience without introducing security vulnerabilities.
+
+4. **Treat the compliance note as reporting only**: `compliance.py` is outside the decision path. It inspects existing policy constants and trace records for Article 9 risk correspondence, Article 12 audit-field coverage, and Article 14 escalation semantics. It does not add tracking or claim legal conformity.
+
+### 8.1 Generate the Responsible-AI report
+
+```bash
+python run_compliance_check.py results/soc_trace.jsonl
+```
+
+This writes `results/eu_ai_act_alignment.md`. The report is intentionally honest about current trace limitations: the existing `TraceLogger` records action type, risk score, reason codes, and outcome, but does not currently emit a top-level timestamp, so timestamp coverage is reported as missing.

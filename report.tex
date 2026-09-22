@@ -260,6 +260,8 @@ The repository is structured into modular Python files under \texttt{sentinel\_s
 \texttt{adapter.py} & HTTP Server & Provides standard \texttt{GET /healthz} and \texttt{POST /v1/decision} endpoints. \\
 \texttt{trace.py} & Audit Logger & Appends structured decision records to \texttt{sentinel\_decisions.jsonl}. \\
 \texttt{ablation.py} & Ablation Runner & Runs boundary tests to verify each security toggle in isolation. \\
+\texttt{compliance.py} & Responsible-AI Reporting & Read-only EU AI Act alignment note for Articles 9, 12, and 14. \\
+\texttt{dashboard/} & Live Observability UI & Next.js console for live trace metrics, risk trends, filters, and provenance inspection. \\
 \bottomrule
 \end{tabularx}
 \caption{System Module Overview}
@@ -278,6 +280,43 @@ The repository is structured into modular Python files under \texttt{sentinel\_s
 \end{enumerate}
 
 ---
+
+\subsection{Operational Demonstration and Observability}
+The repository provides two complementary demonstration paths. The small in-process
+\texttt{demo.py} walkthrough evaluates seven hand-authored actions. The recommended
+\texttt{run\_demo.sh} workflow starts the adapter and live dashboard, then runs all
+13 public SOC scenario files from the starter kit. The current batch produces 64
+individual policy decisions across those 13 scenarios. A scenario is a complete
+simulator task; an action is one candidate decision evaluated during a task, so one
+scenario can produce multiple actions.
+
+The live dashboard reads the JSONL trace through an SSE stream and presents outcome
+metrics, a sequential risk chart, filters, reason codes, and a provenance inspector.
+It is an observability surface only: it does not alter policy decisions or execute
+tools. The standalone renderer in \texttt{dashboard.py} can also produce an offline
+HTML snapshot for a selected trace.
+
+\subsection{Responsible-AI Alignment Reporting}
+The additive \texttt{compliance.py} module is a documentation/reporting aid outside
+the decision-making path. It reads policy constants and existing trace records to
+document architectural correspondence to three EU AI Act topics:
+
+\begin{itemize}[leftmargin=1.5em]
+    \item \textbf{Article 9 --- Risk Management}: records the existing criticality,
+    trust, corroboration, hard-backstop, and tool-permission behavior using the
+    thresholds imported from \texttt{policy.py};
+    \item \textbf{Article 12 --- Record-Keeping}: computes coverage for timestamp,
+    action type, risk score, reason codes, and outcome from each JSONL record;
+    \item \textbf{Article 14 --- Human Oversight}: calculates the observed
+    \texttt{ESCALATE} fraction and documents that the adapter returns a decision
+    without invoking the tool, leaving approval enforcement to the caller.
+\end{itemize}
+
+Generate the report with \texttt{python run\_compliance\_check.py
+results/soc\_trace.jsonl}. The current TraceLogger schema does not emit a top-level
+timestamp, so the report records timestamp coverage as a gap rather than inferring
+one. This note is an architectural correspondence document, not a legal conformity
+assessment.
 
 \section{Input and Output Formats (JSON Wire Schemas)}
 
