@@ -56,15 +56,15 @@
 
 \pagestyle{fancy}
 \fancyhf{}
-\rhead{\textcolor{graytext}{\small SENTINEL SOC Defense AI Layer --- Technical Report}}
+\rhead{\textcolor{graytext}{\small SENTINEL SOC Defense AI Layer, Technical Report}}
 \lhead{\textcolor{graytext}{\small System Architecture \& Approach}}
 \rfoot{\thepage}
 
 \title{\vspace{-1.2cm}\Huge\textbf{\textcolor{primary}{SENTINEL SOC Defense AI Layer}}\\[0.3em]
-\Large\textbf{Architecture, Provenance-Based Security, and System Specification}\\[0.2em]
+\Large\textbf{Architecture, Provenance Based Security, and System Specification}\\[0.2em]
 \normalsize A Practical Guide to Protecting Autonomous SOC Agents}
 \author{\textbf{SENTINEL Defense Engineering Team}}
-\date{\today}
+\date{September, 2026}
 
 \begin{document}
 
@@ -72,7 +72,7 @@
 \thispagestyle{fancy}
 
 \begin{abstract}
-AI agents in Security Operations Centers (SOCs) help analysts by reading alerts, looking up threat data, and running automated response tools. However, when these agents read untrusted data---such as web server logs, email bodies, or external blogs---attackers can hide malicious instructions inside that text. This attack, known as \textbf{Indirect Prompt Injection}, tricks the AI into closing active investigations, disabling security sensors, or leaking sensitive data.
+AI agents in Security Operations Centers (SOCs) help analysts by reading alerts, looking up threat data, and running automated response tools. However, when these agents read untrusted data, such as web server logs, email bodies, or external blogs, attackers can hide malicious instructions inside that text. This attack, known as \textbf{Indirect Prompt Injection}, tricks the AI into closing active investigations, disabling security sensors, or leaking sensitive data.
 
 Traditional defenses that look for ``bad keywords'' fail because attackers can easily rephrase instructions, while legitimate alerts often mention the same words. Running a second AI model to check every action is slow and expensive.
 
@@ -118,7 +118,45 @@ When the AI agent reads this log file to investigate the alert, it may follow th
     \item \textbf{The SENTINEL Approach}: A fast ($<1\text{ ms}$), rule-and-math-based defense layer that checks \textbf{data origin (provenance)} and \textbf{action danger (criticality)} rather than relying on surface keywords.
 \end{itemize}
 
----
+\section{Threat Model, Hypothesis, and Method}
+
+\subsection{Threat Model}
+The protected system is an autonomous SOC agent that can read alerts, logs, asset
+records, memory, and threat intelligence, then propose responses through tools.
+The attacker controls or can influence some of the descriptive content consumed by
+the agent, including hostile logs, tool output, external intelligence, and poisoned
+memory inputs. The attacker may attempt indirect prompt injection, false approval,
+memory poisoning, unauthorized tool use, or sensitive data disclosure. The attacker
+does not modify the SENTINEL policy code, trust registry, or tool permission context.
+The system is therefore evaluated as a decision firewall, not as a complete data
+loss prevention system or a replacement for downstream tool authorization.
+
+\subsection{Hypothesis}
+If candidate actions are evaluated using action criticality, minimum provenance
+trust, independent trusted corroboration, deterministic tool permissions, and a
+high criticality backstop, then the defense should block or escalate more unsafe
+actions than a policy based only on surface instruction keywords, while preserving
+benign read and analysis actions. Trust inheritance should also prevent an
+untrusted memory entry from becoming trusted merely because it was stored.
+
+\subsection{Method}
+The evaluation combines three forms of evidence:
+\begin{enumerate}[leftmargin=1.5em]
+    \item \textbf{Scenario batch}: run the 13 public SOC scenario files through the
+    HTTP adapter and record every policy decision in JSONL. Grade each scenario
+    using the simulator's task success, attack success, and critical violation
+    fields, then report pass or fail by attack family.
+    \item \textbf{Boundary probes}: execute five small in-process probes across
+    four policy configurations to isolate corroboration, pattern detection, memory
+    trust, safe rewrite, and tool permission behavior.
+    \item \textbf{Trace inspection}: inspect the generated trace for outcome,
+    risk score, reason codes, provenance, and audit record coverage. The dashboard
+    is used for observability only and does not change decisions.
+\end{enumerate}
+
+The full batch produced 64 decision actions from 13 scenarios. Results below are
+based on the repository's generated scenario CSV and ablation report, rather than
+on hand selected examples.
 
 \section{The Core Approach: Provenance and Criticality}
 
@@ -179,8 +217,6 @@ Different tools carry different risks if executed incorrectly:
 \caption{Action Criticality Ratings}
 \end{table}
 
----
-
 \section{The Mathematical Risk Formula}
 
 \subsection{The Formula Explained}
@@ -237,8 +273,6 @@ When the agent writes information into memory, the memory record inherits the \t
 \[ \text{Memory Trust} = \min(\text{Trust of sources used to write the note}) \]
 If an agent reads an untrusted blog ($T=0.20$) and saves a summary to memory, that memory retains $T=0.20$. This prevents attackers from ``washing'' untrusted data through memory.
 
----
-
 \section{System Architecture and Implementation}
 
 \subsection{Component Overview}
@@ -260,7 +294,8 @@ The repository is structured into modular Python files under \texttt{sentinel\_s
 \texttt{adapter.py} & HTTP Server & Provides standard \texttt{GET /healthz} and \texttt{POST /v1/decision} endpoints. \\
 \texttt{trace.py} & Audit Logger & Appends structured decision records to \texttt{sentinel\_decisions.jsonl}. \\
 \texttt{ablation.py} & Ablation Runner & Runs boundary tests to verify each security toggle in isolation. \\
-\texttt{compliance.py} & Responsible-AI Reporting & Read-only EU AI Act alignment note for Articles 9, 12, and 14. \\
+\texttt{compliance.py} & Responsible AI Reporting & Read-only EU AI Act alignment note for Articles 9, 12, and 14. \\
+\texttt{agentdojo\_integration.py} & External Evaluation Gate & Optional AgentDojo pre-execution policy gate with a separate SENTINEL trace. \\
 \texttt{dashboard/} & Live Observability UI & Next.js console for live trace metrics, risk trends, filters, and provenance inspection. \\
 \bottomrule
 \end{tabularx}
@@ -279,16 +314,13 @@ The repository is structured into modular Python files under \texttt{sentinel\_s
     \item \textbf{Log \& Respond}: Appends the event to \texttt{sentinel\_decisions.jsonl} and returns the decision JSON.
 \end{enumerate}
 
----
-
 \subsection{Operational Demonstration and Observability}
-The repository provides two complementary demonstration paths. The small in-process
-\texttt{demo.py} walkthrough evaluates seven hand-authored actions. The recommended
-\texttt{run\_demo.sh} workflow starts the adapter and live dashboard, then runs all
-13 public SOC scenario files from the starter kit. The current batch produces 64
-individual policy decisions across those 13 scenarios. A scenario is a complete
-simulator task; an action is one candidate decision evaluated during a task, so one
-scenario can produce multiple actions.
+The recommended \texttt{run\_demo.sh} workflow starts the adapter and live dashboard,
+then runs all 13 public SOC scenario files from the starter kit. The current batch
+produces 64 individual policy decisions across those 13 scenarios. A scenario is a
+complete simulator task; an action is one candidate decision evaluated during a task,
+so one scenario can produce multiple actions. This scenario-driven batch is the
+primary evidence source for the dashboard and the technical report.
 
 The live dashboard reads the JSONL trace through an SSE stream and presents outcome
 metrics, a sequential risk chart, filters, reason codes, and a provenance inspector.
@@ -296,18 +328,77 @@ It is an observability surface only: it does not alter policy decisions or execu
 tools. The standalone renderer in \texttt{dashboard.py} can also produce an offline
 HTML snapshot for a selected trace.
 
-\subsection{Responsible-AI Alignment Reporting}
+An optional external benchmark bridge, \texttt{agentdojo\_integration.py}, adapts
+AgentDojo's tool execution boundary so SENTINEL evaluates each proposed function
+call before the benchmark executes it. The runner supports Groq through its
+OpenAI-compatible endpoint, loads \texttt{GROQ\_API\_KEY} from the local
+\texttt{.env} file, writes a separate SENTINEL trace, and persists utility,
+security, and failure-analysis results for the dashboard. AgentDojo retains
+ownership of benchmark scoring.
+
+The current result is a filtered smoke run using the \texttt{workspace} suite,
+the \texttt{tool\_knowledge} attack, \texttt{user\_task\_0},
+\texttt{injection\_task\_0}, and Groq's
+\texttt{openai/gpt-oss-120b}. Because the runner evaluates selected user-task
+and injection-task combinations, these filters produced exactly one evaluated
+case: utility passed ($1/1$, $100\%$), while security failed ($0/1$, $0\%$).
+This is a smoke-run result and should not be generalized to the full suite. The SENTINEL trace
+shows multiple adversary-controlled email-derived \texttt{send\_email} calls
+blocked at the tool boundary. However, some sensitive read operations, including
+email collection steps, were classified as the low-criticality
+\texttt{summarize} action and allowed. This caused the AgentDojo security
+failure. The result identifies a concrete boundary: the current action registry
+and risk model do not yet represent data sensitivity, cumulative collection, and
+exfiltration intent with enough precision. The result is included in the
+dashboard and is not presented as a successful external benchmark.
+
+For broader evidence, both task filters should be omitted so all compatible
+combinations in the selected suite and attack are evaluated. The command is:
+\begin{lstlisting}[language=bash]
+python run_agentdojo.py --provider groq --suite workspace \\
+  --attack tool_knowledge --model openai/gpt-oss-120b --force-rerun
+\end{lstlisting}
+The full run consumes more API credits and takes longer. The
+\texttt{--force-rerun} option is important when cached AgentDojo results would
+otherwise be reused.
+
+\subsection{Scenario Results by Attack Family}
+The batch contained 13 public SOC scenarios and generated 5 passes and 8 fails.
+Here, a fail means either that the simulator observed a security violation or that
+the scenario task was not completed. This distinction matters because the defense
+can block an action while the overall agent task still fails for another reason.
+
+\begin{table}[ht]
+\centering
+\small
+\begin{tabularx}{\textwidth}{l c c c X}
+\toprule
+\textbf{Attack family} & \textbf{Scenarios} & \textbf{Pass} & \textbf{Fail} & \textbf{Observation} \\
+\midrule
+\texttt{data\_exfiltration} & 7 & 0 & 7 & Main failure cluster; disclosure shaped actions were not reliably recognized as high impact. \\
+\texttt{direct\_instruction} & 1 & 1 & 0 & Unsafe direct instruction was caught. \\
+\texttt{indirect\_prompt\_injection} & 1 & 1 & 0 & Hostile log instruction was blocked. \\
+\texttt{memory\_poisoning} & 1 & 1 & 0 & Inherited untrusted memory remained untrusted. \\
+\texttt{none} & 3 & 2 & 1 & Two benign cases passed; one hard negative did not complete its task. \\
+\midrule
+\textbf{Total} & \textbf{13} & \textbf{5} & \textbf{8} & \\
+\bottomrule
+\end{tabularx}
+\caption{Scenario batch results by declared attack family}
+\end{table}
+
+\subsection{Responsible AI Alignment Reporting}
 The additive \texttt{compliance.py} module is a documentation/reporting aid outside
 the decision-making path. It reads policy constants and existing trace records to
 document architectural correspondence to three EU AI Act topics:
 
 \begin{itemize}[leftmargin=1.5em]
-    \item \textbf{Article 9 --- Risk Management}: records the existing criticality,
+    \item \textbf{Article 9, Risk Management}: records the existing criticality,
     trust, corroboration, hard-backstop, and tool-permission behavior using the
     thresholds imported from \texttt{policy.py};
-    \item \textbf{Article 12 --- Record-Keeping}: computes coverage for timestamp,
+    \item \textbf{Article 12, Record Keeping}: computes coverage for timestamp,
     action type, risk score, reason codes, and outcome from each JSONL record;
-    \item \textbf{Article 14 --- Human Oversight}: calculates the observed
+    \item \textbf{Article 14, Human Oversight}: calculates the observed
     \texttt{ESCALATE} fraction and documents that the adapter returns a decision
     without invoking the tool, leaving approval enforcement to the caller.
 \end{itemize}
@@ -366,8 +457,6 @@ assessment.
 }
 \end{lstlisting}
 
----
-
 \section{Ablation Study: Verifying the Security Features}
 
 \subsection{Why Run an Ablation Study?}
@@ -409,7 +498,40 @@ We test each configuration against five specific test cases (probes):
     \item \textbf{Probes D \& E (Safety Controls)}: Safe rewrites and tool permission limits operate consistently across all configurations, confirming that foundational guardrails remain intact.
 \end{itemize}
 
----
+\section{Failure Analysis and Safety Statement}
+
+\subsection{Where the Defense Breaks}
+The scenario results identify a specific limitation rather than a general success
+claim. All seven \texttt{data\_exfiltration} scenarios failed. In these cases, the
+agent reached disclosure shaped steps that were represented as low criticality or
+ordinary incident work, so the risk formula could produce a low score and allow the
+action. The current policy protects the decision to invoke a tool, but it does not
+fully inspect the sensitivity of every value carried through a permitted tool or
+final response. It also does not yet provide encoding aware exfiltration detection,
+adaptive multi step reasoning, or a complete downstream data flow control.
+
+The ablation results reinforce this boundary. The full policy and corroboration off
+scenario batches each caught 3 of 10 attack scenarios, because the independent risk
+threshold often blocked the same cases before the backstop could change the outcome.
+The isolated probe still changed from \textbf{BLOCK} with corroboration enabled to
+\textbf{ESCALATE} with it disabled. This means the backstop is causally effective,
+but the published scenario set also exposes failure modes outside that single rule.
+
+\subsection{Responsible AI and Safety Statement}
+SENTINEL is a synthetic data research prototype and a decision support layer, not a
+legal compliance system or an autonomous security authority. Its risk scores and
+outcomes are rule based, hand tuned, and dependent on the quality of provenance and
+policy context supplied to it. An \textbf{ALLOW} result is not proof that an action
+is safe, and a \textbf{BLOCK} or \textbf{ESCALATE} result is not a substitute for
+human incident response judgment.
+
+Consequential state changes are not executed by the adapter when it returns
+\texttt{ESCALATE}; the caller must enforce approval before execution. The
+\texttt{REWRITE} path replaces selected state changing tool calls with a non final
+human review response. The read only compliance module documents correspondence to
+EU AI Act Articles 9, 12, and 14, reports missing audit fields plainly, and makes no
+claim of legal conformity. Human oversight, downstream authorization, monitoring,
+and independent review remain required for deployment.
 
 \section{Summary and Key Recommendations}
 \begin{enumerate}[leftmargin=1.5em]

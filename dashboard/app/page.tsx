@@ -10,6 +10,7 @@ import { ControlBar, type FamilyFilter, type OutcomeFilter } from "@/components/
 import { DecisionCard } from "@/components/DecisionCard";
 import { Inspector } from "@/components/Inspector";
 import { Footer } from "@/components/Footer";
+import { AgentDojoPanel } from "@/components/AgentDojoPanel";
 
 const BENIGN_FAMILIES = new Set(["benign", "hard-negative"]);
 
@@ -132,6 +133,8 @@ export default function Home() {
             query={query}
             onQueryChange={setQuery}
           />
+
+          <AgentDojoPanel />
 
           <div className="workspace">
             <div className="stream-col">

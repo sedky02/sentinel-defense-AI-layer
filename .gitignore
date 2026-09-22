@@ -10,3 +10,6 @@ trace_output.md
 results/simulator_artifacts/
 
 .mcp.json
+
+# Local API credentials
+.env

@@ -643,6 +643,148 @@ button {
   color: var(--text-ghost);
 }
 
+.agentdojo-panel {
+  padding: 1.15rem 1.25rem;
+  border-color: rgba(99, 198, 213, 0.18);
+  background: linear-gradient(120deg, rgba(14, 32, 42, 0.9), rgba(13, 20, 31, 0.82));
+}
+
+.agentdojo-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.agentdojo-head h2 {
+  margin: 0.2rem 0 0.25rem;
+  font-family: var(--font-display);
+  font-size: 17px;
+  letter-spacing: -0.02em;
+}
+
+.agentdojo-head p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.section-kicker {
+  color: var(--rewrite);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+}
+
+.agentdojo-status {
+  flex-shrink: 0;
+  padding: 0.28rem 0.55rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: 999px;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.agentdojo-status.complete {
+  color: var(--allow);
+  border-color: rgba(57, 214, 160, 0.25);
+  background: var(--allow-tint);
+}
+
+.agentdojo-status.pending {
+  color: var(--text-ghost);
+  background: rgba(180, 205, 220, 0.04);
+}
+
+.agentdojo-empty {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 1rem;
+  margin-top: 1rem;
+  padding: 0.8rem 0.9rem;
+  border: 1px dashed var(--border-subtle);
+  border-radius: 0.55rem;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.agentdojo-empty strong {
+  color: var(--text-strong);
+}
+
+.agentdojo-empty code {
+  color: var(--rewrite);
+}
+
+.agentdojo-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 1rem;
+}
+
+.agentdojo-meta span {
+  padding: 0.25rem 0.5rem;
+  border: 1px solid var(--border-hairline);
+  border-radius: 999px;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 10px;
+}
+
+.agentdojo-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.6rem;
+  margin-top: 0.8rem;
+}
+
+.agentdojo-metrics > div {
+  display: flex;
+  flex-direction: column;
+  gap: 0.18rem;
+  padding: 0.75rem;
+  border-radius: 0.5rem;
+  background: rgba(8, 13, 21, 0.48);
+  border: 1px solid var(--border-hairline);
+}
+
+.agentdojo-metrics span,
+.agentdojo-metrics small {
+  color: var(--text-ghost);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.agentdojo-metrics strong {
+  color: var(--text-strong);
+  font-family: var(--font-display);
+  font-size: 22px;
+}
+
+.agentdojo-analysis {
+  margin-top: 0.9rem;
+  padding-top: 0.8rem;
+  border-top: 1px solid var(--border-hairline);
+}
+
+.agentdojo-analysis p {
+  margin: 0.35rem 0 0;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+@media (max-width: 800px) {
+  .agentdojo-metrics {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
 .stream-head-left {
   display: flex;
   align-items: center;
