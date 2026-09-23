@@ -3,7 +3,7 @@ import { OUTCOME_COLOR } from "@/lib/outcome";
 
 export type FamilyFilter = "all" | "benign" | "attacks";
 export type OutcomeFilter = "all" | Outcome;
-export type MethodFilter = "all" | "behavioral" | "legacy" | "extraction" | "unavailable";
+export type MethodFilter = "all" | "behavioral" | "legacy" | "extraction" | "data_flow" | "unavailable";
 
 const BENIGN_FAMILIES = new Set(["benign", "hard-negative"]);
 const OUTCOMES: Outcome[] = ["ALLOW", "BLOCK", "ESCALATE", "REWRITE"];
@@ -12,6 +12,7 @@ const METHOD_LABELS: Array<{ value: MethodFilter; label: string }> = [
   { value: "behavioral", label: "Behavioral" },
   { value: "legacy", label: "Legacy pattern" },
   { value: "extraction", label: "Extraction" },
+  { value: "data_flow", label: "Data flow" },
   { value: "unavailable", label: "Unavailable" },
 ];
 
@@ -20,6 +21,7 @@ function matchesMethod(record: DecisionRecord, method: MethodFilter): boolean {
   if (method === "behavioral") return record.reason_codes.includes("BEHAVIORAL_DIVERGENCE_DETECTED") || record.reason_codes.includes("PARTIAL_OVERLAP_BENIGN");
   if (method === "legacy") return record.reason_codes.includes("LEGACY_PATTERN_MATCHED") || record.reason_codes.includes("INSTRUCTION_PATTERN_DETECTED");
   if (method === "extraction") return (record.extracted_facts?.length ?? 0) > 0;
+  if (method === "data_flow") return (record.payload_sensitivity ?? 0) > 0 || (record.intent_drift_penalty ?? 0) > 0 || record.reason_codes.includes("UNTRUSTED_APPROVAL_AUTHORITY");
   return record.reason_codes.some((code) => code.startsWith("BEHAVIORAL_SIGNAL_UNAVAILABLE"));
 }
 

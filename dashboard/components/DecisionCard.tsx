@@ -80,6 +80,13 @@ export function DecisionCard({
           <span>{record.extracted_facts?.length} allowlisted fact(s)</span>
         </div>
       )}
+      {(record.payload_sensitivity ?? 0) > 0 && (
+        <div className="signal-summary">
+          <span className="signal-label">Data flow</span>
+          <span>payload sensitivity {record.payload_sensitivity?.toFixed(2)}</span>
+          {(record.sensitivity_findings ?? []).map((finding) => <span key={finding}>{finding}</span>)}
+        </div>
+      )}
     </article>
   );
 }

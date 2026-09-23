@@ -32,6 +32,16 @@ class CandidateAction:
     justifying_observations: list[Observation] = field(default_factory=list)
     justifying_memory: list[MemoryEntry] = field(default_factory=list)
     params: dict = field(default_factory=dict)
+    payload_sensitivity: float = 0.0
+    intent_entities: list[str] = field(default_factory=list)
+
+
+@dataclass(frozen=True)
+class PolicyContext:
+    """Optional policy inputs supplied by an integration boundary."""
+
+    allowed_tools: set[str] | None = None
+    initial_intent_entities: list[str] = field(default_factory=list)
 
 
 @dataclass(frozen=True)
@@ -42,3 +52,7 @@ class Decision:
     explanation: str
     rewritten_action: CandidateAction | None = None
     behavioral_signal: "BehavioralSignal | None" = None
+    payload_sensitivity: float = 0.0
+    effective_criticality: float | None = None
+    intent_drift_penalty: float = 0.0
+    sensitivity_findings: list[str] = field(default_factory=list)

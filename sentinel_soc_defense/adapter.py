@@ -50,6 +50,7 @@ from typing import Any
 
 from .behavioral_detector import BEHAVIORAL_REEXECUTION_TIMEOUT_SECONDS
 from .extraction import DEFAULT_SCHEMA_REGISTRY, ExtractedFact, extract_facts
+from .intent_tracker import extract_authenticated_intent
 from .models import CandidateAction, MemoryEntry, Observation
 from .policy import HIGH_CRITICALITY_THRESHOLD, PolicyConfig, decide
 from .risk_actions import action_criticality
@@ -218,7 +219,10 @@ def translate_request(payload: dict[str, Any], *, extraction_mode: str = "raw") 
             payload.get("extracted_facts", []), observation_by_source, source_type_by_source,
         )
     arguments["_extracted_facts"] = extracted_fact_dicts
-    return CandidateAction(_action_type(guarded), target, observations, memory, arguments)
+    return CandidateAction(
+        _action_type(guarded), target, observations, memory, arguments,
+        intent_entities=extract_authenticated_intent(observations),
+    )
 
 
 def decision_response(payload: dict[str, Any], config: PolicyConfig | None = None) -> tuple[CandidateAction, Any, dict[str, Any]]:
@@ -254,6 +258,10 @@ def decision_response(payload: dict[str, Any], config: PolicyConfig | None = Non
                 "reason_codes": result.reason_codes[:16], "explanation": result.explanation[:500],
                 "rewritten_action": rewritten,
                 "metadata": {"action_criticality_input": action.action_type,
+                             "effective_criticality": result.effective_criticality,
+                             "payload_sensitivity": result.payload_sensitivity,
+                             "intent_drift_penalty": result.intent_drift_penalty,
+                             "sensitivity_findings": result.sensitivity_findings,
                              "observation_count": len(action.justifying_observations),
                              "memory_count": len(action.justifying_memory),
                              "behavioral_signal": behavioral_signal}}
@@ -271,6 +279,14 @@ class DefenseHandler(BaseHTTPRequestHandler):
         else: self.send_error(HTTPStatus.NOT_FOUND)
 
     def do_POST(self) -> None:  # noqa: N802
+        if self.path.rstrip("/") == "/v1/response_filter":
+            try:
+                payload = json.loads(self.rfile.read(int(self.headers.get("Content-Length", "0"))))
+                from .response_filter import filter_payload
+                self._json(HTTPStatus.OK, filter_payload(payload))
+            except (TypeError, ValueError, json.JSONDecodeError) as error:
+                self._json(HTTPStatus.BAD_REQUEST, {"error": str(error)[:500]})
+            return
         if self.path.rstrip("/") != "/v1/decision": self.send_error(HTTPStatus.NOT_FOUND); return
         try:
             payload = json.loads(self.rfile.read(int(self.headers.get("Content-Length", "0"))))
@@ -290,6 +306,9 @@ def main() -> None:
     parser.add_argument("--disable-behavioral-detector", action="store_true")
     parser.add_argument("--behavioral-fail-open", action="store_true")
     parser.add_argument("--behavioral-timeout-seconds", type=float, default=BEHAVIORAL_REEXECUTION_TIMEOUT_SECONDS)
+    parser.add_argument("--disable-payload-sensitivity", action="store_true")
+    parser.add_argument("--disable-intent-drift", action="store_true")
+    parser.add_argument("--disable-approval-authority", action="store_true")
     args = parser.parse_args(); DefenseHandler.logger = TraceLogger(Path(args.trace)); DefenseHandler.config = PolicyConfig(
         enable_instruction_detector=not args.disable_pattern,
         enforce_corroboration_backstop=not args.disable_corroboration_backstop,
@@ -297,6 +316,9 @@ def main() -> None:
         enable_behavioral_detector=not args.disable_behavioral_detector,
         behavioral_fail_open=args.behavioral_fail_open,
         behavioral_timeout_seconds=args.behavioral_timeout_seconds,
+        enable_payload_sensitivity=not args.disable_payload_sensitivity,
+        enable_intent_drift=not args.disable_intent_drift,
+        enforce_approval_authority=not args.disable_approval_authority,
     )
     print(f"SENTINEL v1 adapter listening on http://{args.host}:{args.port}")
     ThreadingHTTPServer((args.host, args.port), DefenseHandler).serve_forever()

@@ -10,9 +10,11 @@ from .behavioral_detector import (
     is_signal_unavailable,
 )
 from .instruction_detector import detect_instruction_pattern
+from .intent_tracker import drift_penalty
 from .models import CandidateAction, Decision
 from .reexecution import AgentReExecutor, NullReExecutor
 from .risk_actions import LOW_RISK_ACTIONS, action_criticality
+from .sensitivity_registry import scan_action_payload
 from .trust import trust_score, min_trust
 
 PATTERN_WEIGHT = 0.15  # Retained for legacy/ablation-comparison config only; the
@@ -33,6 +35,8 @@ HIGH_CRITICALITY_THRESHOLD = 0.8
 LOW_TRUST_THRESHOLD = 0.3
 ESCALATE_RISK_THRESHOLD = 0.4
 BLOCK_RISK_THRESHOLD = 0.7
+AAV_CRITICALITY_THRESHOLD = 0.90
+SENSITIVE_AUTHORIZED_ACTIONS = frozenset({"financial_execution", "resource_modification"})
 
 
 @dataclass(frozen=True)
@@ -54,6 +58,9 @@ class PolicyConfig:
     behavioral_fail_open: bool = False
     reexecutor: AgentReExecutor = field(default_factory=NullReExecutor)
     behavioral_timeout_seconds: float = BEHAVIORAL_REEXECUTION_TIMEOUT_SECONDS
+    enable_payload_sensitivity: bool = True
+    enable_intent_drift: bool = True
+    enforce_approval_authority: bool = True
 
 
 def corroboration_count(action: CandidateAction) -> int:
@@ -104,7 +111,13 @@ def decide(
                 "policy allowed_tools set."
             ),
         )
-    criticality = action_criticality(action.action_type)
+    base_criticality = action_criticality(action.action_type)
+    detected_sensitivity, sensitivity_findings = scan_action_payload(action)
+    if not config.enable_payload_sensitivity:
+        detected_sensitivity, sensitivity_findings = 0.0, []
+    payload_sensitivity = max(action.payload_sensitivity, detected_sensitivity)
+    effective_criticality = max(base_criticality, payload_sensitivity)
+    intent_drift_penalty = drift_penalty(action, action.intent_entities) if config.enable_intent_drift else 0.0
     # The default preserves memory provenance. The alternative exists only as an
     # ablation: it demonstrates the security cost of incorrectly trusting memory.
     trust = min_trust(action.justifying_observations, action.justifying_memory)
@@ -118,7 +131,7 @@ def decide(
     # inference call; low-risk actions skip this entirely.
     behavioral_signal = None
     behavioral_unavailable_fail_open = False
-    if config.enable_behavioral_detector and criticality >= BEHAVIORAL_CRITICALITY_THRESHOLD:
+    if config.enable_behavioral_detector and effective_criticality >= BEHAVIORAL_CRITICALITY_THRESHOLD:
         behavioral_signal = evaluate_behavioral_signal(
             action,
             config.reexecutor,
@@ -141,17 +154,18 @@ def decide(
     # low-weight corroborating signal) are both additive and capped -- neither
     # may independently justify a decision.
     behavioral_triggered = bool(behavioral_signal and behavioral_signal.triggered)
-    risk_score = criticality * (1 - trust)
+    risk_score = effective_criticality * (1 - trust)
     risk_score += BEHAVIORAL_WEIGHT if behavioral_triggered else 0.0
     risk_score += LEGACY_PATTERN_WEIGHT if pattern_found else 0.0
+    risk_score += intent_drift_penalty
     risk_score -= CORROBORATION_CREDIT * min(corroboration, 2)
     risk_score = max(0.0, min(1.0, risk_score))
 
     reasons: list[str] = []
-    high_risk_low_trust = criticality >= HIGH_CRITICALITY_THRESHOLD and trust <= LOW_TRUST_THRESHOLD
+    high_risk_low_trust = effective_criticality >= HIGH_CRITICALITY_THRESHOLD and trust <= LOW_TRUST_THRESHOLD
     if high_risk_low_trust:
         reasons.append("HIGH_RISK_LOW_TRUST")
-    if config.enforce_corroboration_backstop and criticality >= HIGH_CRITICALITY_THRESHOLD and corroboration == 0:
+    if config.enforce_corroboration_backstop and effective_criticality >= HIGH_CRITICALITY_THRESHOLD and corroboration == 0:
         reasons.append("NO_CORROBORATION")
     if pattern_found:
         # Both names appended for one transition cycle: INSTRUCTION_PATTERN_DETECTED
@@ -174,8 +188,31 @@ def decide(
             # Observability only: does not affect risk_score or outcome.
             reasons.append("PARTIAL_OVERLAP_BENIGN")
 
+    authenticated_approval = any(
+        item.trust_label == "AUTHENTICATED_USER" for item in action.justifying_observations
+    ) and bool(action.params.get("approval_token"))
+    requires_authority = (
+        effective_criticality >= AAV_CRITICALITY_THRESHOLD
+        and action.action_type in SENSITIVE_AUTHORIZED_ACTIONS
+    )
+    if config.enforce_approval_authority and requires_authority and not authenticated_approval:
+        reasons.append("UNTRUSTED_APPROVAL_AUTHORITY")
+        return Decision(
+            outcome="BLOCK",
+            risk_score=1.0,
+            reason_codes=reasons,
+            explanation=(
+                f"Blocked {action.action_type}: critical financial/resource action requires "
+                "an explicit approval_token and AUTHENTICATED_USER provenance."
+            ),
+            payload_sensitivity=payload_sensitivity,
+            effective_criticality=effective_criticality,
+            intent_drift_penalty=intent_drift_penalty,
+            sensitivity_findings=[finding.category for finding in sensitivity_findings],
+        )
+
     # Backstop prevents hostile logs or fake approvals from enabling critical acts.
-    if (config.enforce_corroboration_backstop and criticality >= HIGH_CRITICALITY_THRESHOLD
+    if (config.enforce_corroboration_backstop and effective_criticality >= HIGH_CRITICALITY_THRESHOLD
             and corroboration == 0 and trust <= LOW_TRUST_THRESHOLD):
         reasons.append("CORROBORATION_BACKSTOP")
         outcome = "BLOCK"
@@ -236,13 +273,18 @@ def decide(
             f"observations_held_constant={held_constant}."
         )
     explanation = (
-        f"Outcome {outcome}: criticality={criticality:.2f}, minimum provenance "
+        f"Outcome {outcome}: criticality={effective_criticality:.2f} "
+        f"(tool={base_criticality:.2f}, payload={payload_sensitivity:.2f}), minimum provenance "
         f"trust={trust:.2f}, independent trusted corroboration={corroboration}, "
-        f"risk={risk_score:.2f}."
+        f"drift_penalty={intent_drift_penalty:.2f}, risk={risk_score:.2f}."
         + pattern_note
         + behavioral_note
     )
-    return Decision(outcome, risk_score, reasons, explanation, rewritten_action, behavioral_signal)
+    return Decision(
+        outcome, risk_score, reasons, explanation, rewritten_action, behavioral_signal,
+        payload_sensitivity, effective_criticality, intent_drift_penalty,
+        [finding.category for finding in sensitivity_findings],
+    )
 
 
 def _build_conversation_history(action: CandidateAction) -> list[dict]:

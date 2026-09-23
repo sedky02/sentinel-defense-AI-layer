@@ -49,6 +49,10 @@ class TraceLogger:
                  )}
                 if decision.behavioral_signal is not None else None
             ),
+            "payload_sensitivity": decision.payload_sensitivity,
+            "effective_criticality": decision.effective_criticality,
+            "intent_drift_penalty": decision.intent_drift_penalty,
+            "sensitivity_findings": decision.sensitivity_findings,
             "extracted_facts": action.params.get("_extracted_facts", []),
             "metadata": metadata or {},
         }

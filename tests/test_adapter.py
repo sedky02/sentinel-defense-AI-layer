@@ -1,6 +1,7 @@
 import unittest
 
 from sentinel_soc_defense.adapter import decision_response, translate_request
+from sentinel_soc_defense.response_filter import filter_payload
 from sentinel_soc_defense.policy import PolicyConfig
 from sentinel_soc_defense.reexecution import MockReExecutor
 
@@ -54,6 +55,23 @@ class DecisionResponseTests(unittest.TestCase):
             self.assertIn(key, response)
         for key in ("action_criticality_input", "observation_count", "memory_count"):
             self.assertIn(key, response["metadata"])
+
+    def test_authenticated_user_intent_is_attached_to_action(self) -> None:
+        payload = _base_payload(
+            provenance=[
+                {"id": "obs-1", "provenance": {
+                    "trust_level": "authenticated_user", "source_id": "user", "sensitivity": "internal",
+                }},
+            ],
+            conversation=[{"provenance_ids": ["obs-1"], "content": "Investigate Server-22", "kind": "observation"}],
+        )
+        action = translate_request(payload)
+        self.assertIn("server-22", action.intent_entities)
+
+    def test_response_filter_redacts_sensitive_tool_output(self) -> None:
+        result = filter_payload({"content": "api_key=super-secret-value-123"})
+        self.assertTrue(result["redacted"])
+        self.assertIn("REDACTED_BY_SENTINEL", result["content"])
 
 
 class ExtractionModeTests(unittest.TestCase):

@@ -49,6 +49,10 @@ export interface DecisionRecord {
   memory: MemoryRecord[];
   behavioral_signal?: BehavioralSignalRecord | null;
   extracted_facts?: ExtractedFactRecord[];
+  payload_sensitivity?: number;
+  effective_criticality?: number | null;
+  intent_drift_penalty?: number;
+  sensitivity_findings?: string[];
   metadata: Record<string, unknown>;
   /** Assigned client-side / server-side as the line index in the trace file. */
   seq: number;

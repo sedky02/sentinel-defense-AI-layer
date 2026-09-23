@@ -91,6 +91,7 @@ export default function Home() {
       if (methodFilter === "behavioral" && !record.reason_codes.includes("BEHAVIORAL_DIVERGENCE_DETECTED") && !record.reason_codes.includes("PARTIAL_OVERLAP_BENIGN")) return false;
       if (methodFilter === "legacy" && !record.reason_codes.includes("LEGACY_PATTERN_MATCHED") && !record.reason_codes.includes("INSTRUCTION_PATTERN_DETECTED")) return false;
       if (methodFilter === "extraction" && !(record.extracted_facts?.length ?? 0)) return false;
+      if (methodFilter === "data_flow" && !(record.payload_sensitivity || record.intent_drift_penalty || record.reason_codes.includes("UNTRUSTED_APPROVAL_AUTHORITY"))) return false;
       if (methodFilter === "unavailable" && !record.reason_codes.some((code) => code.startsWith("BEHAVIORAL_SIGNAL_UNAVAILABLE"))) return false;
       if (q) {
         const haystack = `${record.action_type} ${record.target} ${record.reason_codes.join(" ")}`.toLowerCase();

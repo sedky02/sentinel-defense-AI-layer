@@ -13,6 +13,10 @@ This work keeps the original detector and adds two complementary defenses:
 
 The objective is not to claim that either method is a complete prompt-injection solution. The objective is layered risk reduction: provenance and action criticality remain primary, legacy text matching remains cheap corroborating evidence, behavioral similarity detects wording-independent influence, and extraction limits what untrusted text can become.
 
+The 2026 extension closes the remaining data-flow gap. It decouples tool criticality from payload
+sensitivity, tracks drift from the authenticated initial intent, verifies financial approval
+authority, and provides downstream redaction before tool output enters the agent context.
+
 ## 2. Existing Solutions and Gap in the Market
 
 Existing defenses fall into several groups:
@@ -71,6 +75,37 @@ The dashboard now filters decisions by:
 
 These filters are additive views over the same trace, not mutually exclusive labels: one decision can contain both a legacy match and a behavioral trigger. Cards and the inspector show behavioral similarity, masked action, latency, extraction fact count, and fact confidence. This makes ablation and incident review possible without changing the policy outcome.
 
+### 3.5 2026 data-flow controls
+
+The upgraded formula is:
+
+```text
+R(a) = clamp(effective_criticality * (1 - T_min)
+             + W_behavioral + W_legacy + W_drift - corroboration_credit)
+effective_criticality = max(tool_criticality, payload_sensitivity)
+```
+
+`sensitivity_registry.py` scans action arguments, observations, and memory for bounded
+fingerprints such as API keys, private keys, bearer tokens, credential assignments, payment-card
+patterns, internal IP addresses, and email addresses. Findings are recorded, but the scanner does
+not decide whether prose is an instruction. This allows benign trusted investigations to retain
+utility while adversary-controlled sensitive payloads inherit high effective criticality.
+
+`intent_tracker.py` extracts lightweight entities from `AUTHENTICATED_USER` observations. A
+bounded `0.30` drift penalty applies only to outbound/entity-bearing action types whose target
+entities are disjoint from the initial intent. This produces review pressure without blocking
+ordinary reads and investigation steps.
+
+Approval Authority Verification is a hard rule: `financial_execution` and
+`resource_modification` actions with effective criticality at least `0.90` require an explicit
+`approval_token` and an `AUTHENTICATED_USER` observation. Text such as `CFO Approved: Yes` in an
+untrusted email is evidence, not authority, and cannot satisfy the rule.
+
+Finally, `POST /v1/response_filter` applies the same deterministic fingerprint registry to tool
+output and replaces sensitive spans with `[REDACTED_BY_SENTINEL]` before the caller adds the
+response to an agent context. The response retains non-sensitive context and reports finding
+categories for audit.
+
 ## 4. Experiments and Results
 
 ### 4.1 Local implementation validation
@@ -94,6 +129,10 @@ Extraction tests verify that hostile log text cannot yield an instruction-shaped
 
 The checked-in scenario CSVs are useful regression artifacts, but they currently show many low-risk disclosure cases being missed because their mapped action remains `summarize` with risk `0.0`. They should not be presented as proof of behavioral-detector performance. A new end-to-end benchmark must run through an adapter configured with a real or deterministic replay re-executor and must record the method reason codes in the resulting trace.
 
+The new synthetic extension probes address those failures directly: a secret-bearing summary is
+blocked through payload sensitivity, an outbound action to an entity outside the authenticated
+intent is escalated for review, and an untrusted fake financial approval is blocked by AAV.
+
 ### 4.3 Research comparison
 
 MELON reports AgentDojo results across GPT-4o, o3-mini, and Llama-3.3-70B using benign utility, utility under attack, and attack success rate. Its GPT-4o MELON result reports `0.24%` average ASR, while MELON-Aug reports `0.32%` ASR and `68.72%` utility under attack. These are published paper results, not measurements of this repository.
@@ -108,6 +147,7 @@ The CaMeL discussion used here is a secondary summary of *Defeating Prompt Injec
 - Gate masked re-execution by criticality to control latency and cost.
 - Treat unavailable behavioral infrastructure as an audit signal, not automatic risk credit. The corroboration backstop remains the safety mechanism.
 - Keep extraction dependency-free for regex fields and make optional LLM summaries fail per field rather than failing the request.
+- Expose payload, drift, and approval controls as explicit adapter flags for reproducible ablation; production defaults keep all three enabled.
 - Rebuild provenance and trust at the boundary instead of trusting caller-supplied confidence or labels.
 - Trace all detector evidence so the dashboard can explain why a decision changed.
 - Use `REWRITE` for state-changing remediation or incident closure when human review is required.
@@ -127,6 +167,8 @@ Future benchmark runs should report metrics at both the agent and defense layers
 - **Latency and cost:** p50/p95 decision latency, re-execution timeout rate, and additional model/tool-call cost.
 - **Extraction coverage:** allowlisted facts retained, forbidden fields dropped, and source-type schema misses.
 - **Provenance integrity:** cases where untrusted evidence is incorrectly upgraded or independently trusted.
+- **Sensitive-data recall:** sensitive payloads detected before planning and redacted before context insertion.
+- **Approval-authority precision:** fake approvals rejected while authenticated approvals remain usable.
 
 ## 7. Limitations
 
@@ -135,6 +177,12 @@ The current re-executor is an integration interface; the default adapter does no
 MELON-style comparison focuses primarily on tool actions. Attacks that succeed through response text, state hallucination, redundant calls, or nonexistent functions can evade a tool-call-only detector. Similarity thresholds and security-relevant argument selection require domain calibration. A real masked run can approximately double inference cost, and timeout handling can leave the underlying model call running in the background.
 
 Extraction narrows the attack surface but does not prove that extracted facts are true. A forged but plausible status, severity, or identifier still requires downstream provenance and policy checks. The source-type mapping is currently pragmatic substring matching and should become an explicit deployment configuration. Finally, the existing scenario library is not yet a controlled AgentDojo-equivalent comparison, and the checked-in CSV results include coverage gaps in data-exfiltration action modeling.
+
+The fingerprint registry is deliberately conservative and regex-based; it can miss encoded,
+obfuscated, fragmented, or novel secret formats and may flag legitimate identifiers. Redaction is
+only effective when the integration calls the response-filter boundary before storing or replaying
+tool output. Intent extraction is lightweight entity matching rather than full semantic NER, so it
+can miss paraphrases and should remain a review signal rather than a sole blocking authority.
 
 ## 8. Future Directions
 
