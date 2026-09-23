@@ -125,6 +125,11 @@ export default function Home() {
             <RiskChart records={records} />
           </div>
 
+
+          <AttackConsole />
+
+          <AgentDojoPanel />
+
           <ControlBar
             records={records}
             familyFilter={familyFilter}
@@ -134,10 +139,6 @@ export default function Home() {
             query={query}
             onQueryChange={setQuery}
           />
-
-          <AttackConsole />
-
-          <AgentDojoPanel />
 
           <div className="workspace">
             <div className="stream-col">

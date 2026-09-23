@@ -31,6 +31,10 @@ export interface DecisionRecord {
   rewritten_action: RewrittenAction | null;
   observations: ObservationRecord[];
   memory: MemoryRecord[];
+  payload_sensitivity?: number;
+  effective_criticality?: number | null;
+  intent_drift_penalty?: number;
+  sensitivity_findings?: string[];
   metadata: Record<string, unknown>;
   /** Assigned client-side / server-side as the line index in the trace file. */
   seq: number;

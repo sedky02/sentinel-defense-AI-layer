@@ -1,6 +1,6 @@
 """Rule-based provenance-aware defense layer for SOC agent actions."""
 
-from .models import CandidateAction, Decision, MemoryEntry, Observation
+from .models import CandidateAction, Decision, MemoryEntry, Observation, PolicyContext
 from .policy import decide
 
-__all__ = ["CandidateAction", "Decision", "MemoryEntry", "Observation", "decide"]
+__all__ = ["CandidateAction", "Decision", "MemoryEntry", "Observation", "PolicyContext", "decide"]

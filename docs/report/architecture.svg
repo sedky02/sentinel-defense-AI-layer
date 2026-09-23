@@ -1,0 +1,90 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 330" font-family="Libertinus Serif, serif" font-size="13">
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#33414f"/>
+    </marker>
+    <marker id="r" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#8c232d"/>
+    </marker>
+  </defs>
+
+  <!-- inputs -->
+  <g stroke="#33414f" stroke-width="1.2">
+    <rect x="20" y="28" width="160" height="46" rx="6" fill="#eef3f9"/>
+    <rect x="20" y="108" width="160" height="46" rx="6" fill="#fbeeee"/>
+    <rect x="20" y="188" width="160" height="46" rx="6" fill="#eef3f9"/>
+  </g>
+  <text x="100" y="48" text-anchor="middle" font-weight="bold">Authenticated user goal</text>
+  <text x="100" y="64" text-anchor="middle" font-size="11" fill="#555">trust 0.85</text>
+  <text x="100" y="128" text-anchor="middle" font-weight="bold">Tool outputs, logs, intel</text>
+  <text x="100" y="144" text-anchor="middle" font-size="11" fill="#8c232d">possibly attacker-controlled</text>
+  <text x="100" y="208" text-anchor="middle" font-weight="bold">Agent memory</text>
+  <text x="100" y="224" text-anchor="middle" font-size="11" fill="#555">inherits source trust</text>
+
+  <!-- agent -->
+  <rect x="235" y="96" width="150" height="70" rx="8" fill="#ffffff" stroke="#193764" stroke-width="1.6"/>
+  <text x="310" y="124" text-anchor="middle" font-weight="bold">Reference agent</text>
+  <text x="310" y="142" text-anchor="middle" font-size="11" fill="#555">mock / Qwen3-8B</text>
+
+  <g stroke="#33414f" stroke-width="1.2" fill="none" marker-end="url(#a)">
+    <path d="M180,51 C210,51 210,112 233,114"/>
+    <path d="M180,131 L233,131"/>
+    <path d="M180,211 C210,211 210,150 233,148"/>
+  </g>
+
+  <g transform="translate(30,0)">
+  <!-- SENTINEL group -->
+  <rect x="440" y="14" width="300" height="236" rx="10" fill="#f6f9f4" stroke="#1e734b" stroke-width="1.4" stroke-dasharray="6 4"/>
+  <text x="590" y="34" text-anchor="middle" font-weight="bold" fill="#1e734b">SENTINEL defense layer</text>
+
+  <g stroke="#33414f" stroke-width="1.2" fill="#ffffff">
+    <rect x="456" y="48" width="126" height="48" rx="6"/>
+    <rect x="600" y="48" width="126" height="48" rx="6"/>
+    <rect x="516" y="122" width="148" height="50" rx="6" fill="#eef3f9" stroke="#193764" stroke-width="1.6"/>
+    <rect x="456" y="196" width="126" height="40" rx="6"/>
+  </g>
+  <text x="519" y="68" text-anchor="middle" font-weight="bold">adapter.py</text>
+  <text x="519" y="84" text-anchor="middle" font-size="11" fill="#555">provenance, v1 contract</text>
+  <text x="663" y="68" text-anchor="middle" font-weight="bold">extraction.py</text>
+  <text x="663" y="84" text-anchor="middle" font-size="11" fill="#555">schema-typed facts</text>
+  <text x="590" y="143" text-anchor="middle" font-weight="bold">policy.py  decide()</text>
+  <text x="590" y="160" text-anchor="middle" font-size="11" fill="#555">risk R(a) + hard rules</text>
+  <text x="519" y="221" text-anchor="middle" font-weight="bold">trace.py (JSONL)</text>
+
+  <g stroke="#33414f" stroke-width="1.2" fill="none" marker-end="url(#a)">
+    <path d="M582,72 L598,72"/>
+    <path d="M663,96 C663,110 640,112 630,120"/>
+    <path d="M519,96 C519,110 540,112 550,120"/>
+    <path d="M560,172 L535,194"/>
+  </g>
+
+  <!-- dashboard -->
+  <rect x="770" y="196" width="112" height="40" rx="6" fill="#ffffff" stroke="#33414f" stroke-width="1.2"/>
+  <text x="826" y="221" text-anchor="middle" font-weight="bold">Dashboard</text>
+  <path d="M582,216 L768,216" stroke="#33414f" stroke-width="1.2" fill="none" marker-end="url(#a)"/>
+  <text x="675" y="210" font-size="11" fill="#555" text-anchor="middle">read-only consumer</text>
+
+  </g>
+
+  <!-- agent <-> sentinel -->
+  <path d="M385,112 C425,104 440,72 484,72" stroke="#33414f" stroke-width="1.2" fill="none" marker-end="url(#a)"/>
+  <text x="418" y="58" font-size="10.5" fill="#33414f" text-anchor="middle">candidate action</text>
+  <text x="418" y="70" font-size="10.5" fill="#33414f" text-anchor="middle">+ provenance ids</text>
+  <path d="M544,150 C480,150 430,150 387,148" stroke="#8c232d" stroke-width="1.5" fill="none" marker-end="url(#r)"/>
+  <text x="427" y="170" font-size="10.5" fill="#8c232d" text-anchor="middle">allow / block /</text>
+  <text x="427" y="182" font-size="10.5" fill="#8c232d" text-anchor="middle">escalate / rewrite</text>
+
+  <!-- tool path -->
+  <rect x="235" y="270" width="150" height="44" rx="6" fill="#ffffff" stroke="#33414f" stroke-width="1.2"/>
+  <text x="310" y="291" text-anchor="middle" font-weight="bold">Tool gateway</text>
+  <text x="310" y="306" text-anchor="middle" font-size="11" fill="#555">executes approved call</text>
+  <rect x="20" y="270" width="160" height="44" rx="6" fill="#f6f9f4" stroke="#1e734b" stroke-width="1.2"/>
+  <text x="100" y="291" text-anchor="middle" font-weight="bold">/v1/response_filter</text>
+  <text x="100" y="306" text-anchor="middle" font-size="11" fill="#555">redacts sensitive spans</text>
+  <g stroke="#33414f" stroke-width="1.2" fill="none" marker-end="url(#a)">
+    <path d="M310,166 L310,268"/>
+    <path d="M233,292 L182,292"/>
+    <path d="M60,270 C40,250 40,175 58,156"/>
+  </g>
+  <text x="318" y="222" font-size="11" fill="#555">approved call</text>
+</svg>

@@ -44,7 +44,7 @@ export function Inspector({ record }: { record: DecisionRecord | null }) {
     ...record.memory.map((m) => m.trust_label),
   ]);
 
-  const criticality = actionCriticality(record.action_type);
+  const criticality = record.effective_criticality ?? actionCriticality(record.action_type);
   const trust = minTrust(record);
   const corroboration = corroborationCredit(record);
 
@@ -101,6 +101,22 @@ export function Inspector({ record }: { record: DecisionRecord | null }) {
             </div>
             <Bar value={corroboration} color="var(--rewrite)" />
           </div>
+
+          <div className="risk-synth-row">
+            <div className="risk-synth-head">
+              <span>Payload Sensitivity</span>
+              <strong>{(record.payload_sensitivity ?? 0).toFixed(2)}</strong>
+            </div>
+            <Bar value={record.payload_sensitivity ?? 0} color="var(--block)" />
+          </div>
+
+          <div className="risk-synth-row">
+            <div className="risk-synth-head">
+              <span>Intent Drift Penalty</span>
+              <strong>{(record.intent_drift_penalty ?? 0).toFixed(2)}</strong>
+            </div>
+            <Bar value={record.intent_drift_penalty ?? 0} color="var(--rewrite)" />
+          </div>
         </div>
 
         <div className="inspector-block">
@@ -120,6 +136,7 @@ export function Inspector({ record }: { record: DecisionRecord | null }) {
             </div>
           </div>
         )}
+
       </div>
 
       <div className="panel" style={{ display: "flex", flexDirection: "column", gap: "0.625rem" }}>

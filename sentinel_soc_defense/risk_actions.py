@@ -9,6 +9,8 @@ HIGH_RISK_ACTIONS: dict[str, float] = {
     "run_remediation": 0.85,
     "change_asset_criticality": 0.8,
     "modify_correlation_rule": 0.9,
+    "financial_execution": 0.95,
+    "resource_modification": 0.95,
 }
 
 # Low-risk actions are allowed unless provenance/risk signals indicate otherwise.

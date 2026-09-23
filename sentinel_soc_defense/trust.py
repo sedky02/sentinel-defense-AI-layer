@@ -31,3 +31,21 @@ def min_trust(
     scores = [trust_score(item.trust_label) for item in observations]
     scores.extend(trust_score(item.trust_label) for item in memory_entries)
     return min(scores) if scores else 0.0
+
+
+def inherit_trust_label(sources: Iterable[Observation]) -> str:
+    """Return the trust *label* (not just the numeric score) of the least-trusted
+    source, falling back to ``"ADVERSARY_CONTROLLED"`` if that label isn't a
+    recognized ``TRUST_SCORES`` key -- fail closed rather than propagating an
+    unrecognized/malformed label as if it were trustworthy.
+
+    This is the shared "derived content can never be more trusted than its
+    weakest source" rule, used both when ``memory.py`` writes a ``MemoryEntry``
+    and when ``extraction.py`` builds an ``ExtractedFact`` from an ``Observation``
+    -- one implementation instead of a second inline copy.
+    """
+    sources = list(sources)
+    if not sources:
+        return "ADVERSARY_CONTROLLED"
+    lowest = min(sources, key=lambda item: trust_score(item.trust_label))
+    return lowest.trust_label if lowest.trust_label in TRUST_SCORES else "ADVERSARY_CONTROLLED"

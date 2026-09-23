@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 
 from .models import MemoryEntry, Observation
-from .trust import TRUST_SCORES, trust_score
+from .trust import inherit_trust_label
 
 
 class MemoryStore:
@@ -21,12 +21,9 @@ class MemoryStore:
         # Trust inheritance rule: memory can never be more trusted than its least
         # trusted source.  In particular, untrusted text cannot become policy by
         # being rewritten into the agent's own memory.
-        lowest_source = min(source_observations, key=lambda item: trust_score(item.trust_label))
         entry = MemoryEntry(
             content=content,
-            trust_label=lowest_source.trust_label
-            if lowest_source.trust_label in TRUST_SCORES
-            else "ADVERSARY_CONTROLLED",
+            trust_label=inherit_trust_label(source_observations),
             derived_from=[item.source for item in source_observations],
             written_at=datetime.now(timezone.utc).isoformat(),
         )
