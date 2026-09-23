@@ -64,22 +64,6 @@ export function DecisionCard({
         </div>
       )}
 
-      {record.behavioral_signal && (
-        <div className="signal-summary">
-          <span className="signal-label">Behavioral</span>
-          <span>similarity {record.behavioral_signal.similarity_score.toFixed(2)}</span>
-          <span>{record.behavioral_signal.triggered ? "triggered" : record.behavioral_signal.reason}</span>
-          {record.behavioral_signal.latency_seconds !== undefined && (
-            <span>{Math.round(record.behavioral_signal.latency_seconds * 1000)} ms</span>
-          )}
-        </div>
-      )}
-      {(record.extracted_facts?.length ?? 0) > 0 && (
-        <div className="signal-summary">
-          <span className="signal-label">Extraction</span>
-          <span>{record.extracted_facts?.length} allowlisted fact(s)</span>
-        </div>
-      )}
       {(record.payload_sensitivity ?? 0) > 0 && (
         <div className="signal-summary">
           <span className="signal-label">Data flow</span>

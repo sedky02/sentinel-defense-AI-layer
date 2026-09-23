@@ -20,22 +20,6 @@ export interface RewrittenAction {
   params: Record<string, unknown>;
 }
 
-export interface BehavioralSignalRecord {
-  triggered: boolean;
-  similarity_score: number;
-  reason: string;
-  latency_seconds?: number;
-  masked_action?: string | null;
-}
-
-export interface ExtractedFactRecord {
-  field: string;
-  value: string;
-  source_observation_id: string;
-  trust_label: string;
-  extraction_confidence: number;
-}
-
 export interface DecisionRecord {
   session_id: string;
   action_type: string;
@@ -47,8 +31,6 @@ export interface DecisionRecord {
   rewritten_action: RewrittenAction | null;
   observations: ObservationRecord[];
   memory: MemoryRecord[];
-  behavioral_signal?: BehavioralSignalRecord | null;
-  extracted_facts?: ExtractedFactRecord[];
   payload_sensitivity?: number;
   effective_criticality?: number | null;
   intent_drift_penalty?: number;

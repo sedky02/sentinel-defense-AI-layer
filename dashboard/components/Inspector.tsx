@@ -137,32 +137,6 @@ export function Inspector({ record }: { record: DecisionRecord | null }) {
           </div>
         )}
 
-        {record.behavioral_signal && (
-          <div className="inspector-block">
-            <span className="inspector-label">Masked Re-execution</span>
-            <div className="signal-summary">
-              <span>Result: {record.behavioral_signal.triggered ? "triggered" : record.behavioral_signal.reason}</span>
-              <span>Similarity: {record.behavioral_signal.similarity_score.toFixed(2)}</span>
-              <span>Masked action: {record.behavioral_signal.masked_action ?? "none"}</span>
-              {record.behavioral_signal.latency_seconds !== undefined && (
-                <span>Latency: {Math.round(record.behavioral_signal.latency_seconds * 1000)} ms</span>
-              )}
-            </div>
-          </div>
-        )}
-
-        {(record.extracted_facts?.length ?? 0) > 0 && (
-          <div className="inspector-block">
-            <span className="inspector-label">Allowlisted Extracted Facts</span>
-            <div className="reason-codes">
-              {record.extracted_facts?.map((fact) => (
-                <span key={`${fact.source_observation_id}-${fact.field}`} className="reason-chip">
-                  {fact.field} ({fact.extraction_confidence.toFixed(2)})
-                </span>
-              ))}
-            </div>
-          </div>
-        )}
       </div>
 
       <div className="panel" style={{ display: "flex", flexDirection: "column", gap: "0.625rem" }}>

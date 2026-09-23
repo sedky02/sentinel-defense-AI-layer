@@ -42,18 +42,13 @@ class TraceLogger:
                 {"triggered": decision.behavioral_signal.triggered,
                  "similarity_score": decision.behavioral_signal.similarity_score,
                  "reason": decision.behavioral_signal.reason,
-                 "latency_seconds": decision.behavioral_signal.latency_seconds,
-                 "masked_action": (
-                     decision.behavioral_signal.masked_action.action_type
-                     if decision.behavioral_signal.masked_action is not None else None
-                 )}
+                 "latency_seconds": decision.behavioral_signal.latency_seconds}
                 if decision.behavioral_signal is not None else None
             ),
             "payload_sensitivity": decision.payload_sensitivity,
             "effective_criticality": decision.effective_criticality,
             "intent_drift_penalty": decision.intent_drift_penalty,
             "sensitivity_findings": decision.sensitivity_findings,
-            "extracted_facts": action.params.get("_extracted_facts", []),
             "metadata": metadata or {},
         }
         with self.path.open("a", encoding="utf-8") as handle:

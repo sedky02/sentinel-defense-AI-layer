@@ -6,7 +6,7 @@ import { Sidebar } from "@/components/Sidebar";
 import { TopBar } from "@/components/TopBar";
 import { MetricsRow } from "@/components/MetricsRow";
 import { RiskChart } from "@/components/RiskChart";
-import { ControlBar, type FamilyFilter, type MethodFilter, type OutcomeFilter } from "@/components/FilterChips";
+import { ControlBar, type FamilyFilter, type OutcomeFilter } from "@/components/FilterChips";
 import { DecisionCard } from "@/components/DecisionCard";
 import { Inspector } from "@/components/Inspector";
 import { Footer } from "@/components/Footer";
@@ -23,7 +23,6 @@ export default function Home() {
   const [paused, setPaused] = useState(false);
   const [familyFilter, setFamilyFilter] = useState<FamilyFilter>("all");
   const [outcomeFilter, setOutcomeFilter] = useState<OutcomeFilter>("all");
-  const [methodFilter, setMethodFilter] = useState<MethodFilter>("all");
   const [query, setQuery] = useState("");
   const [selectedSeq, setSelectedSeq] = useState<number | null>(null);
   const [now, setNow] = useState(() => Date.now());
@@ -88,18 +87,13 @@ export default function Home() {
       if (familyFilter === "benign" && !isBenign) return false;
       if (familyFilter === "attacks" && isBenign) return false;
       if (outcomeFilter !== "all" && record.outcome !== outcomeFilter) return false;
-      if (methodFilter === "behavioral" && !record.reason_codes.includes("BEHAVIORAL_DIVERGENCE_DETECTED") && !record.reason_codes.includes("PARTIAL_OVERLAP_BENIGN")) return false;
-      if (methodFilter === "legacy" && !record.reason_codes.includes("LEGACY_PATTERN_MATCHED") && !record.reason_codes.includes("INSTRUCTION_PATTERN_DETECTED")) return false;
-      if (methodFilter === "extraction" && !(record.extracted_facts?.length ?? 0)) return false;
-      if (methodFilter === "data_flow" && !(record.payload_sensitivity || record.intent_drift_penalty || record.reason_codes.includes("UNTRUSTED_APPROVAL_AUTHORITY"))) return false;
-      if (methodFilter === "unavailable" && !record.reason_codes.some((code) => code.startsWith("BEHAVIORAL_SIGNAL_UNAVAILABLE"))) return false;
       if (q) {
         const haystack = `${record.action_type} ${record.target} ${record.reason_codes.join(" ")}`.toLowerCase();
         if (!haystack.includes(q)) return false;
       }
       return true;
     });
-  }, [records, familyFilter, outcomeFilter, methodFilter, query]);
+  }, [records, familyFilter, outcomeFilter, query]);
 
   const ordered = useMemo(() => [...filtered].reverse(), [filtered]);
 
@@ -131,21 +125,20 @@ export default function Home() {
             <RiskChart records={records} />
           </div>
 
+
+          <AttackConsole />
+
+          <AgentDojoPanel />
+
           <ControlBar
             records={records}
             familyFilter={familyFilter}
             onFamilyFilterChange={setFamilyFilter}
             outcomeFilter={outcomeFilter}
             onOutcomeFilterChange={setOutcomeFilter}
-            methodFilter={methodFilter}
-            onMethodFilterChange={setMethodFilter}
             query={query}
             onQueryChange={setQuery}
           />
-
-          <AttackConsole />
-
-          <AgentDojoPanel />
 
           <div className="workspace">
             <div className="stream-col">
