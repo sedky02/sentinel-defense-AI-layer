@@ -1,3 +1,5 @@
+import { SOC_SCENARIO_PRESETS, type Scenario } from "@/lib/scenarioPresets";
+
 export interface AttackPreset {
   id: string;
   label: string;
@@ -5,6 +7,8 @@ export interface AttackPreset {
   description: string;
   expected: string;
   body: Record<string, unknown>;
+  /** Source scenario.schema.json document, for presets derived from the public SOC scenarios. */
+  scenario?: Scenario;
 }
 
 const POLICY_CONTEXT = {
@@ -16,7 +20,7 @@ const POLICY_CONTEXT = {
   rules: [],
 };
 
-export const ATTACK_PRESETS: AttackPreset[] = [
+export const CUSTOM_ATTACK_PRESETS: AttackPreset[] = [
   {
     id: "benign-control",
     label: "Benign: read alert",
@@ -108,3 +112,5 @@ export const ATTACK_PRESETS: AttackPreset[] = [
     },
   },
 ];
+
+export const ATTACK_PRESETS: AttackPreset[] = [...CUSTOM_ATTACK_PRESETS, ...SOC_SCENARIO_PRESETS];

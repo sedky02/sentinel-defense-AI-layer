@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { ATTACK_PRESETS } from "@/lib/attackPresets";
+import { ATTACK_PRESETS, CUSTOM_ATTACK_PRESETS } from "@/lib/attackPresets";
+import { SOC_SCENARIO_PRESETS } from "@/lib/scenarioPresets";
 import { renderMarkdown } from "@/lib/markdown";
 import { deriveRequestSummary, type RequestSummary } from "@/lib/requestSummary";
 import { AttackPipeline, type PipelineState, type PipelineResult } from "./AttackPipeline";
@@ -19,6 +20,7 @@ function friendlyError(error: string | null): string | null {
 
 export function AttackConsole() {
   const [presetId, setPresetId] = useState(ATTACK_PRESETS[0].id);
+  const selectedPreset = ATTACK_PRESETS.find((p) => p.id === presetId);
   const [draft, setDraft] = useState(() => JSON.stringify(ATTACK_PRESETS[0].body, null, 2));
   const [parseError, setParseError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
@@ -117,9 +119,16 @@ export function AttackConsole() {
           value={presetId}
           onChange={(e) => applyPreset(e.target.value)}
         >
-          {ATTACK_PRESETS.map((preset) => (
-            <option key={preset.id} value={preset.id}>{preset.label}</option>
-          ))}
+          <optgroup label="Custom attacks">
+            {CUSTOM_ATTACK_PRESETS.map((preset) => (
+              <option key={preset.id} value={preset.id}>{preset.label}</option>
+            ))}
+          </optgroup>
+          <optgroup label="SENTINEL public SOC scenarios">
+            {SOC_SCENARIO_PRESETS.map((preset) => (
+              <option key={preset.id} value={preset.id}>{preset.label} ({preset.family})</option>
+            ))}
+          </optgroup>
         </select>
         <button className="attack-console-send" onClick={send} disabled={sending}>
           {sending ? "Sending..." : "Send attack"}
@@ -127,8 +136,20 @@ export function AttackConsole() {
       </div>
 
       <p className="attack-console-desc">
-        {ATTACK_PRESETS.find((p) => p.id === presetId)?.description}
+        {selectedPreset?.description}
       </p>
+
+      {selectedPreset?.scenario && (
+        <details className="attack-console-editor">
+          <summary>View scenario JSON ({selectedPreset.scenario.id}, scenario.schema.json)</summary>
+          <textarea
+            className="attack-console-textarea"
+            value={JSON.stringify(selectedPreset.scenario, null, 2)}
+            readOnly
+            spellCheck={false}
+          />
+        </details>
+      )}
 
       <details className="attack-console-editor">
         <summary>Edit raw request JSON</summary>
