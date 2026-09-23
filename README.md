@@ -36,13 +36,13 @@ Memory has trust inheritance. A memory entry receives the minimum trust label of
 python -m unittest discover -s tests -v
 ```
 
-For the complete local SOC demonstration, run the adapter against all 13 public SOC scenarios from the starter kit and open the live dashboard:
+For the complete local SOC demonstration, start the adapter and the live dashboard with:
 
 ```bash
 ./run_demo.sh
 ```
 
-This writes `results/soc_trace.jsonl` and `results/scenario_results.csv`. The current public SOC batch produces 64 decision actions across 13 scenario files. The dashboard shows actions, not scenarios: one scenario can produce several policy decisions.
+If `SCENARIO_DIR` (default `/tmp/sentinel_starter_kit/scenarios/public/soc`) points at a local checkout of the official starter-kit scenarios, this runs the full public SOC batch against the adapter and writes `results/soc_trace.jsonl` plus `results/scenario_results.csv` (13 scenario files, 64 decision actions at time of writing; the dashboard shows actions, not scenarios, since one scenario can produce several policy decisions). If that directory isn't present — the common case when you haven't checked out the starter kit — the script falls back automatically to the repo's own bundled demo scenarios (`python -m sentinel_soc_defense.demo`), which need no external scenario library and still populate the live dashboard.
 
 ## Official SENTINEL simulator adapter
 
